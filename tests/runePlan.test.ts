@@ -133,7 +133,7 @@ describe("routeText", () => {
 
 describe("WaypointHops", () => {
   const hops = new WaypointHops(
-    new Map<WaypointId, number>([["coldPlains", 10], ["travincal", 50], ["riverOfFlame", 55], ["lutGholein", 40]]),
+    new Map<WaypointId, number>([["coldPlains", 10], ["travincal", 50], ["riverOfFlame", 55], ["dryHills", 40]]),
   );
 
   it("adds up to the most every waypoint can give", () => {
@@ -142,7 +142,7 @@ describe("WaypointHops", () => {
 
   it("picks the closest total, with fewest stops, in act order", () => {
     expect(hops.closest(50)).toEqual({ stops: ["travincal"], total: 50 });
-    expect(hops.closest(100)).toEqual({ stops: ["lutGholein", "riverOfFlame"], total: 95 });
+    expect(hops.closest(100)).toEqual({ stops: ["dryHills", "riverOfFlame"], total: 95 });
     expect(hops.closest(3)).toEqual({ stops: [], total: 0 });
   });
 
