@@ -1,0 +1,526 @@
+name,category
+Arrows,misc
+Bolts,misc
+Gold,misc
+Key,misc
+Scroll of Identify,misc
+Scroll of Town Portal,misc
+Antidote Potion,potion
+Choking Gas Potion,potion
+Exploding Potion,potion
+Greater Healing Potion,potion
+Greater Mana Potion,potion
+Healing Potion,potion
+Light Healing Potion,potion
+Light Mana Potion,potion
+Mana Potion,potion
+Minor Healing Potion,potion
+Minor Mana Potion,potion
+Oil Potion,potion
+Rancid Gas Potion,potion
+Rejuvenation Potion,potion
+Stamina Potion,potion
+Strangling Gas Potion,potion
+Super Healing Potion,potion
+Super Mana Potion,potion
+Thawing Potion,potion
+Amethyst,gem
+Chipped Amethyst,gem
+Chipped Diamond,gem
+Chipped Emerald,gem
+Chipped Ruby,gem
+Chipped Sapphire,gem
+Chipped Skull,gem
+Chipped Topaz,gem
+Diamond,gem
+Emerald,gem
+Flawed Amethyst,gem
+Flawed Diamond,gem
+Flawed Emerald,gem
+Flawed Ruby,gem
+Flawed Sapphire,gem
+Flawed Skull,gem
+Flawed Topaz,gem
+Flawless Amethyst,gem
+Flawless Diamond,gem
+Flawless Emerald,gem
+Flawless Ruby,gem
+Flawless Sapphire,gem
+Flawless Skull,gem
+Flawless Topaz,gem
+Ruby,gem
+Sapphire,gem
+Skull,gem
+Topaz,gem
+El Rune,rune
+Eld Rune,rune
+Tir Rune,rune
+Nef Rune,rune
+Eth Rune,rune
+Ith Rune,rune
+Tal Rune,rune
+Ral Rune,rune
+Ort Rune,rune
+Thul Rune,rune
+Amn Rune,rune
+Sol Rune,rune
+Shael Rune,rune
+Dol Rune,rune
+Hel Rune,rune
+Io Rune,rune
+Lum Rune,rune
+Ko Rune,rune
+Fal Rune,rune
+Lem Rune,rune
+Pul Rune,rune
+Um Rune,rune
+Mal Rune,rune
+Ist Rune,rune
+Gul Rune,rune
+Vex Rune,rune
+Ohm Rune,rune
+Lo Rune,rune
+Sur Rune,rune
+Ber Rune,rune
+Amulet,jewelry
+Grand Charm,jewelry
+Jewel,jewelry
+Large Charm,jewelry
+Ring,jewelry
+Small Charm,jewelry
+Ancient Axe,weapon
+Ancient Sword,weapon
+Arbalest,weapon
+Ashwood Bow,weapon
+Ataghan,weapon
+Axe,weapon
+Balanced Axe,weapon
+Balanced Knife,weapon
+Ballista,weapon
+Balrog Blade,weapon
+Balrog Spear,weapon
+Barbed Club,weapon
+Bardiche,weapon
+Bastard Sword,weapon
+Battle Axe,weapon
+Battle Cestus,weapon
+Battle Dart,weapon
+Battle Hammer,weapon
+Battle Scythe,weapon
+Battle Staff,weapon
+Battle Sword,weapon
+Bearded Axe,weapon
+Bec-de-Corbin,weapon
+Bill,weapon
+Blade,weapon
+Blade Bow,weapon
+Blade Talons,weapon
+Bone Knife,weapon
+Bone Wand,weapon
+Brandistock,weapon
+Broad Axe,weapon
+Broad Sword,weapon
+Burnt Wand,weapon
+Cedar Bow,weapon
+Cedar Staff,weapon
+Ceremonial Bow,weapon
+Ceremonial Javelin,weapon
+Ceremonial Pike,weapon
+Ceremonial Spear,weapon
+Cestus,weapon
+Chu-Ko-Nu,weapon
+Cinquedeas,weapon
+Clasped Orb,weapon
+Claws,weapon
+Claymore,weapon
+Cleaver,weapon
+Cloudy Sphere,weapon
+Club,weapon
+Colossus Crossbow,weapon
+Colossus Voulge,weapon
+Composite Bow,weapon
+Crossbow,weapon
+Crowbill,weapon
+Crystal Sword,weapon
+Crystalline Globe,weapon
+Cudgel,weapon
+Cutlass,weapon
+Dacian Falx,weapon
+Dagger,weapon
+Decapitator,weapon
+Demon Heart,weapon
+Devil Star,weapon
+Diamond Bow,weapon
+Dimensional Blade,weapon
+Dirk,weapon
+Divine Scepter,weapon
+Double Axe,weapon
+Double Bow,weapon
+Eagle Orb,weapon
+Edge Bow,weapon
+Elder Staff,weapon
+Eldritch Orb,weapon
+Elegant Blade,weapon
+Espandon,weapon
+Ettin Axe,weapon
+Executioner Sword,weapon
+Falcata,weapon
+Falchion,weapon
+Fascia,weapon
+Feral Axe,weapon
+Flail,weapon
+Flamberge,weapon
+Flanged Mace,weapon
+Flying Axe,weapon
+Flying Knife,weapon
+Francisca,weapon
+Fuscina,weapon
+Ghost Wand,weapon
+Giant Axe,weapon
+Giant Sword,weapon
+Gladius,weapon
+Glaive,weapon
+Glowing Orb,weapon
+Gnarled Staff,weapon
+Gorgon Crossbow,weapon
+Gothic Axe,weapon
+Gothic Bow,weapon
+Gothic Staff,weapon
+Gothic Sword,weapon
+Grand Scepter,weapon
+Grave Wand,weapon
+Great Axe,weapon
+Great Bow,weapon
+Great Maul,weapon
+Great Pilum,weapon
+Great Sword,weapon
+Greater Claws,weapon
+Greater Talons,weapon
+Grim Scythe,weapon
+Grim Wand,weapon
+Halberd,weapon
+Hand Axe,weapon
+Hand Scythe,weapon
+Harpoon,weapon
+Hatchet,weapon
+Hatchet Hands,weapon
+Heavenly Stone,weapon
+Heavy Crossbow,weapon
+Highland Blade,weapon
+Holy Water Sprinkler,weapon
+Hunter's Bow,weapon
+Hurlbat,weapon
+Hydra Edge,weapon
+Hyperion Javelin,weapon
+Hyperion Spear,weapon
+Jagged Star,weapon
+Jared's Stone,weapon
+Javelin,weapon
+Jo Staff,weapon
+Katar,weapon
+Knout,weapon
+Kriss,weapon
+Lance,weapon
+Large Axe,weapon
+Legend Sword,weapon
+Lich Wand,weapon
+Light Crossbow,weapon
+Lochaber Axe,weapon
+Long Battle Bow,weapon
+Long Bow,weapon
+Long Siege Bow,weapon
+Long Staff,weapon
+Long Sword,weapon
+Long War Bow,weapon
+Mace,weapon
+Maiden Javelin,weapon
+Maiden Pike,weapon
+Maiden Spear,weapon
+Mancatcher,weapon
+Martel de Fer,weapon
+Matriarchal Bow,weapon
+Matriarchal Javelin,weapon
+Matriarchal Spear,weapon
+Maul,weapon
+Mighty Scepter,weapon
+Military Axe,weapon
+Military Pick,weapon
+Mithral Point,weapon
+Morning Star,weapon
+Naga,weapon
+Ogre Axe,weapon
+Ogre Maul,weapon
+Partizan,weapon
+Pellet Bow,weapon
+Petrified Wand,weapon
+Phase Blade,weapon
+Pike,weapon
+Pilum,weapon
+Poignard,weapon
+Poleaxe,weapon
+Polished Wand,weapon
+Quarterstaff,weapon
+Quhab,weapon
+Razor Bow,weapon
+Reflex Bow,weapon
+Reinforced Mace,weapon
+Repeating Crossbow,weapon
+Rondel,weapon
+Rune Bow,weapon
+Rune Scepter,weapon
+Rune Staff,weapon
+Rune Sword,weapon
+Saber,weapon
+Sacred Globe,weapon
+Scepter,weapon
+Scimitar,weapon
+Scissors Katar,weapon
+Scissors Quhab,weapon
+Scythe,weapon
+Shadow Bow,weapon
+Shamshir,weapon
+Short Battle Bow,weapon
+Short Bow,weapon
+Short Siege Bow,weapon
+Short Spear,weapon
+Short Staff,weapon
+Short Sword,weapon
+Short War Bow,weapon
+Siege Crossbow,weapon
+Silver-edged Axe,weapon
+Simbilan,weapon
+Small Crescent,weapon
+Smoked Sphere,weapon
+Sparkling Ball,weapon
+Spear,weapon
+Spetum,weapon
+Spiculum,weapon
+Spider Bow,weapon
+Spiked Club,weapon
+Stag Bow,weapon
+Stalagmite,weapon
+Stilleto,weapon
+Stygian Pike,weapon
+Stygian Pilum,weapon
+Suwayyah,weapon
+Swirling Crystal,weapon
+Tabar,weapon
+Thresher,weapon
+Throwing Axe,weapon
+Throwing Knife,weapon
+Throwing Spear,weapon
+Tomahawk,weapon
+Tomb Wand,weapon
+Trident,weapon
+Truncheon,weapon
+Tulwar,weapon
+Tusk Sword,weapon
+Twin Axe,weapon
+Two-Handed Sword,weapon
+Tyrant Club,weapon
+Voulge,weapon
+Walking Stick,weapon
+Wand,weapon
+War Axe,weapon
+War Club,weapon
+War Dart,weapon
+War Fist,weapon
+War Fork,weapon
+War Hammer,weapon
+War Javelin,weapon
+War Scepter,weapon
+War Scythe,weapon
+War Spear,weapon
+War Staff,weapon
+War Sword,weapon
+Wrist Blade,weapon
+Wrist Spike,weapon
+Wrist Sword,weapon
+Yari,weapon
+Yew Wand,weapon
+Zweihander,weapon
+Aerin Shield,armor
+Akaran Rondache,armor
+Akaran Targe,armor
+Alpha Helm,armor
+Ancient Armor,armor
+Ancient Shield,armor
+Antlers,armor
+Armet,armor
+Assault Helmet,armor
+Avenger Guard,armor
+Barbed Shield,armor
+Basinet,armor
+Battle Belt,armor
+Battle Boots,armor
+Battle Gauntlets,armor
+Belt,armor
+Blade Barrier,armor
+Blood Spirit,armor
+Bone Helm,armor
+Bone Shield,armor
+Boneweave,armor
+Boneweave Boots,armor
+Boots,armor
+Bramble Mitts,armor
+Breast Plate,armor
+Buckler,armor
+Burnt Text,armor
+Cantor Trophy,armor
+Cap,armor
+Carnage Helm,armor
+Casque,armor
+Chain Boots,armor
+Chain Gloves,armor
+Chain Mail,armor
+Chaos Armor,armor
+Circlet,armor
+Codex,armor
+Compendium,armor
+Coronet,armor
+Crown,armor
+Crown Shield,armor
+Cuirass,armor
+Dark Codex,armor
+Dark Tome,armor
+Death Mask,armor
+Defender,armor
+Demon Head,armor
+Demonhead,armor
+Demonhide Armor,armor
+Demonhide Boots,armor
+Demonhide Gloves,armor
+Demonhide Sash,armor
+Destroyer Helm,armor
+Diamond Mail,armor
+Dragon Shield,armor
+Dusk Shroud,armor
+Embossed Plate,armor
+Falcon Mask,armor
+Fanged Helm,armor
+Fetish Trophy,armor
+Field Plate,armor
+Forgotten Volume,armor
+Full Helm,armor
+Full Plate Mail,armor
+Fury Visor,armor
+Gargoyle Head,armor
+Gauntlets,armor
+Ghost Armor,armor
+Giant Conch,armor
+Gilded Shield,armor
+Gothic Plate,armor
+Gothic Shield,armor
+Grand Crown,armor
+Great Hauberk,armor
+Great Helm,armor
+Greaves,armor
+Griffon Headress,armor
+Grim Helm,armor
+Grim Shield,armor
+Grimoire,armor
+Hard Leather Armor,armor
+Hawk Helm,armor
+Heater,armor
+Heavy Belt,armor
+Heavy Boots,armor
+Heavy Bracers,armor
+Heavy Gloves,armor
+Heirophant Trophy,armor
+Hellspawn Skull,armor
+Helm,armor
+Heraldic Shield,armor
+Horned Helm,armor
+Hunter's Guise,armor
+Hydraskull,armor
+Hyperion,armor
+Jawbone Cap,armor
+Jawbone Visor,armor
+Kite Shield,armor
+Large Shield,armor
+Leather Armor,armor
+Leather Gloves,armor
+Light Belt,armor
+Light Gauntlets,armor
+Light Plate,armor
+Light Plated Boots,armor
+Linked Mail,armor
+Lion Helm,armor
+Loricated Mail,armor
+Luna,armor
+Mage Plate,armor
+Mask,armor
+Mesh Armor,armor
+Mesh Belt,armor
+Mesh Boots,armor
+Minion Skull,armor
+Mithril Coil,armor
+Monarch,armor
+Mummified Trophy,armor
+Occult Codex,armor
+Occult Tome,armor
+Old Book,armor
+Ornate Armor,armor
+Overseer Skull,armor
+Pavise,armor
+Plate Mail,armor
+Plated Belt,armor
+Possessed Compendium,armor
+Possessed Grimoire,armor
+Preserved Head,armor
+Protector Shield,armor
+Quilted Armor,armor
+Rage Mask,armor
+Ring Mail,armor
+Rondache,armor
+Round Shield,armor
+Royal Shield,armor
+Russet Armor,armor
+Sacred Feathers,armor
+Sacred Rondache,armor
+Sacred Targe,armor
+Sallet,armor
+Sash,armor
+Savage Helmet,armor
+Scale Mail,armor
+Scarab Husk,armor
+Scarabshell Boots,armor
+Scutum,armor
+Serpentskin Armor,armor
+Sexton Trophy,armor
+Shako,armor
+Sharkskin Belt,armor
+Sharkskin Boots,armor
+Sharkskin Gloves,armor
+Sharktooth Armor,armor
+Skull Cap,armor
+Slayer Guard,armor
+Small Shield,armor
+Spiderweb Sash,armor
+Spiked Shield,armor
+Spirit Mask,armor
+Splint Mail,armor
+Studded Leather,armor
+Sun Spirit,armor
+Targe,armor
+Templar Coat,armor
+Tiara,armor
+Tigulated Mail,armor
+Tome,armor
+Totemic Mask,armor
+Tower Shield,armor
+Trellised Armor,armor
+Unraveller Head,armor
+Vambraces,armor
+Vampirebone Gloves,armor
+Vampirefang Belt,armor
+War Belt,armor
+War Boots,armor
+War Gauntlets,armor
+War Hat,armor
+Winged Helm,armor
+Wire Fleece,armor
+Wolf Head,armor
+Wyrmhide,armor
+Wyrmhide Boots,armor
+Zombie Head,armor
