@@ -3,6 +3,7 @@ import type { ChestSlot, PlayerProgress } from "../../app/progress";
 import { button, el } from "../../ui/dom";
 import { plural } from "../../ui/format";
 import { createPicker } from "../../ui/picker";
+import { onUndoKey } from "../../ui/undo";
 
 const CATEGORY_OF = new Map(CHEST_DROPS.map((drop) => [drop.name, drop.category]));
 
@@ -93,6 +94,11 @@ export function renderDropsPanel(progress: PlayerProgress, slot: ChestSlot): HTM
     if (!(event.target instanceof HTMLInputElement) || !picker.root.contains(event.target)) return;
     if (from instanceof Node && panel.contains(from)) return;
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  onUndoKey(panel, () => {
+    if (drops.length === 0) return false;
+    update(drops.slice(0, -1));
+    return true;
   });
   return panel;
 }

@@ -510,6 +510,13 @@ export class PlayerProgress {
     this.changed();
   }
 
+  retirePlan(): void {
+    if (!this.saved.plan) return;
+    this.saved.lastPlan = this.saved.plan;
+    this.saved.plan = null;
+    this.changed();
+  }
+
   get planAreas(): readonly ChestAreaId[] {
     return this.saved.planAreas;
   }

@@ -63,6 +63,7 @@ class RunPage {
   private readonly afterPlan: HTMLElement;
   private readonly seedInput = el("input", { type: "text", inputMode: "numeric", placeholder: "e.g. 638589163", spellcheck: false, autocomplete: "off" });
   private boardKey = "";
+  private input: BoardInput | null = null;
   private autoTimer = 0;
   private seedKey: string;
 
@@ -75,6 +76,7 @@ class RunPage {
     this.plan = el("div", { hidden: progress.knownSeed === null }, renderRunePlanPanel(progress));
     this.afterPlan = el("div", { className: "page", hidden: true }, renderRunSteps(progress), renderAfterRun());
     this.stopButton.hidden = true;
+    this.options.auto.addEventListener("change", () => this.input?.refresh());
     this.root = el(
       "div",
       { className: "page" },
@@ -157,17 +159,24 @@ class RunPage {
   private renderInput(): BoardInput | null {
     this.boardKey = JSON.stringify(this.board);
     if (this.setup === null) {
+      this.input = null;
       this.inputBox.replaceChildren();
       this.searchButton.disabled = true;
       this.options.root.hidden = true;
       return null;
     }
     this.options.root.hidden = false;
-    const input = renderBoardInput(this.board, this.setup, (blocker) => {
-      saveBoard(this.board);
-      this.searchButton.disabled = blocker !== null || this.run !== null;
-      this.autoSearch(blocker);
-    });
+    const input = renderBoardInput(
+      this.board,
+      this.setup,
+      (blocker) => {
+        saveBoard(this.board);
+        this.searchButton.disabled = blocker !== null || this.run !== null;
+        this.autoSearch(blocker);
+      },
+      () => (this.options.auto.checked ? QUICK_ITEMS : null),
+    );
+    this.input = input;
     this.inputBox.replaceChildren(input.root);
     return input;
   }
@@ -349,6 +358,7 @@ class RunPage {
 
   private showSeedPlans(gameSeeds: readonly number[]): void {
     this.plan.hidden = true;
+    this.progress.retirePlan();
     this.seedPlans.replaceChildren(
       renderSeedPlans(
         this.progress,

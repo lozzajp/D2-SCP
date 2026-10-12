@@ -4,20 +4,29 @@ import { createItemPicker } from "./itemPicker";
 import { boardItemType, FAKE_ASS, pickableItems, searchedItems } from "./boardItems";
 import { offeredItemTypes, type Setup } from "./state";
 import { button, el } from "../../ui/dom";
+import { onUndoKey } from "../../ui/undo";
 
 const CELL_SIZE = 40;
 
 export interface BoardInput {
   root: HTMLElement;
   focus(options?: FocusOptions): void;
+  refresh(): void;
 }
 
-export function renderBoardInput(board: Board, setup: Setup, onChange: (blocker: string | null) => void): BoardInput {
+export function renderBoardInput(
+  board: Board,
+  setup: Setup,
+  onChange: (blocker: string | null) => void,
+  autoRunAt: () => number | null = () => null,
+): BoardInput {
   const offered = offeredItemTypes(setup);
   const offeredSet = new Set(offered);
 
   const boardBox = el("div", { className: "board-box" });
-  const caption = el("p", { className: "caption" });
+  const placed = el("span");
+  const autoBadge = el("span", { className: "badge done auto-badge" });
+  const caption = el("p", { className: "caption" }, placed, autoBadge);
   const note = el("p", { className: "note" });
   const clear = button(
     "Clear board",
@@ -74,8 +83,9 @@ export function renderBoardInput(board: Board, setup: Setup, onChange: (blocker:
 
     const blocker = searchBlocker(board, offeredSet);
     const searched = searchedItems(board).length;
-    caption.textContent =
+    placed.textContent =
       `${board.length}/${MAX_BOARD_ITEMS} items placed` + (searched < board.length ? `, ${searched} searched` : "");
+    refreshAuto();
     note.textContent =
       notice || blocker || "Ready to search. 6 or more items usually narrow it down to a single seed.";
     note.classList.toggle("warning", notice !== "" || (blocker !== null && searched >= MIN_SEARCH_ITEMS));
@@ -84,12 +94,25 @@ export function renderBoardInput(board: Board, setup: Setup, onChange: (blocker:
     onChange(blocker);
   }
 
+  function refreshAuto(): void {
+    const at = autoRunAt();
+    const left = at === null ? 0 : at - searchedItems(board).length;
+    autoBadge.hidden = left <= 0;
+    autoBadge.textContent = `${left} more to autorun`;
+  }
+
   const root = el(
     "div",
     { className: "items-layout" },
     el("div", { className: "board-column" }, boardBox, caption, note, clear),
     picker.root,
   );
+  onUndoKey(root, () => {
+    const last = board.pop();
+    if (!last) return false;
+    changed(`Removed ${boardItemType(last.item).name} (Ctrl+Z).`);
+    return true;
+  });
   changed();
-  return { root, focus: (options) => picker.focus(options) };
+  return { root, focus: (options) => picker.focus(options), refresh: refreshAuto };
 }

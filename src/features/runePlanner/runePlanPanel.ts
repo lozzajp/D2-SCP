@@ -113,8 +113,13 @@ export function renderRunePlanPanel(progress: PlayerProgress): HTMLElement {
     renderPlanFilters(progress),
     body,
     renderPlayersWarning(progress),
-    renderWaitTimer(progress, renderPickedLine(progress)),
+    renderWaitTimer(progress, { planLine: renderPickedLine(progress), needsLock: planNeedsLock }),
   );
+}
+
+async function planNeedsLock(plan: PickedPlan): Promise<boolean> {
+  const patterns = (await loadAllTables()).get(tableKey(plan));
+  return !!patterns && !chestRunes(patterns, plan.seed).always.includes(plan.rune);
 }
 
 export function renderSeedPlans(progress: PlayerProgress, seeds: readonly KnownSeed[], intro?: HTMLElement): HTMLElement {
@@ -155,7 +160,7 @@ export function renderSeedPlans(progress: PlayerProgress, seeds: readonly KnownS
     intro ?? false,
     sections,
     renderPlayersWarning(progress),
-    renderWaitTimer(progress, renderPickedLine(progress)),
+    renderWaitTimer(progress, { planLine: renderPickedLine(progress), needsLock: planNeedsLock, seedCount: seeds.length }),
   );
 }
 

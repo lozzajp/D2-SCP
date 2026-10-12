@@ -18,13 +18,45 @@ interface Running {
   wakeLock: WakeLockSentinel | null;
 }
 
-export function renderWaitTimer(progress: PlayerProgress, planLine?: HTMLElement): HTMLElement {
+export interface WaitTimerOptions {
+  planLine?: HTMLElement;
+  needsLock?: (plan: PickedPlan) => Promise<boolean>;
+  seedCount?: number;
+}
+
+interface Warning {
+  root: HTMLElement;
+  show(key: string | null, text: string, title: string): void;
+}
+
+function dismissableWarning(className: string): Warning {
+  const root = el("div", { className: "players-change", hidden: true });
+  let dismissed = "";
+  return {
+    root,
+    show(key, text, title) {
+      root.hidden = key === null || key === dismissed;
+      if (root.hidden) return root.replaceChildren();
+      const dismiss = button("(dismiss) ", () => {
+        dismissed = key!;
+        root.hidden = true;
+      }, "dismiss-button");
+      dismiss.append(el("span", { className: "dismiss-x", textContent: "✕" }));
+      dismiss.title = title;
+      root.replaceChildren(el("span", { className: `badge players-change-badge ${className}` }, `${text} `, dismiss));
+    },
+  };
+}
+
+export function renderWaitTimer(progress: PlayerProgress, options: WaitTimerOptions = {}): HTMLElement {
+  const { planLine, needsLock, seedCount = 1 } = options;
   const clock = el("div", { className: "timer-clock" });
   const flash = el("div", { className: "timer-flash" });
   const note = el("p", { className: "hint" });
   const playersNote = el("p", { className: "lead" });
-  const playersWarning = el("div", { className: "players-change", hidden: true });
-  let dismissedWarning = "";
+  const playersWarning = dismissableWarning("");
+  const lockedWarning = dismissableWarning("locked-change-badge");
+  const seedsWarning = dismissableWarning("");
   const startButton = button("Start timer", () => start(), "primary");
   const stopButton = button("Reset", () => reset());
   const root = el(
@@ -36,32 +68,47 @@ export function renderWaitTimer(progress: PlayerProgress, planLine?: HTMLElement
     note,
     flash,
     clock,
-    playersWarning,
+    playersWarning.root,
+    lockedWarning.root,
+    seedsWarning.root,
     el("div", { className: "timer-buttons" }, startButton, stopButton),
   );
   let running: Running | null = null;
   let shown: PickedPlan | null = null;
   const isLk = (plan: PickedPlan) => plan.area === "lowerKurast";
   const leaveText = (plan: PickedPlan) => (isLk(plan) ? "take the waypoint to Lower Kurast" : "run/tele to the chest");
+  const planKey = (plan: PickedPlan) => `${tableKey(plan)}:${plan.draw}:${plan.seed}`;
+  let lockedFor = "";
 
-  function renderPlayersWarning(plan: PickedPlan): void {
+  function renderWarnings(plan: PickedPlan | null): void {
     const last = progress.lastPlan;
-    const key = last ? `${tableKey(plan)}:${plan.draw}:${plan.seed}:${last.players}` : "";
-    playersWarning.hidden = !last || last.players === plan.players || key === dismissedWarning;
-    if (playersWarning.hidden || !last) return;
-    const dismiss = button("(dismiss) ", () => {
-      dismissedWarning = key;
-      playersWarning.hidden = true;
-    }, "dismiss-button");
-    dismiss.append(el("span", { className: "dismiss-x", textContent: "✕" }));
-    dismiss.title = "I changed player count";
-    playersWarning.replaceChildren(
-      el(
-        "span",
-        { className: "badge players-change-badge" },
-        `Last game was /players ${last.players}, this plan is /players ${plan.players}: set /players ${plan.players} `,
-        dismiss,
-      ),
+    const playersKey = plan && last && last.players !== plan.players ? `${planKey(plan)}:${last.players}` : null;
+    playersWarning.show(
+      playersKey,
+      `Last game was /players ${last?.players}, this plan is /players ${plan?.players}: set /players ${plan?.players}`,
+      "I changed player count",
+    );
+    const seedsKey = plan && seedCount > 1 ? `${planKey(plan)}:seeds` : null;
+    seedsWarning.show(
+      seedsKey,
+      `Your window matches ${seedCount} game seeds: this plan is a 1 in ${seedCount} guess and may be for the wrong seed. Don't change calibrations or refinements from it.`,
+      "I understand the seed may be wrong",
+    );
+    if (!plan || !needsLock) return lockedWarning.show(null, "", "");
+    const key = planKey(plan);
+    if (key === lockedFor) return;
+    lockedFor = key;
+    lockedWarning.show(null, "", "");
+    needsLock(plan).then(
+      (locked) => {
+        if (lockedFor !== key || !locked) return;
+        lockedWarning.show(
+          `${key}:locked`,
+          `This plan's ${plan.rune} needs the chest to be locked (21% chance it will be locked).`,
+          "I know the chest needs to be locked",
+        );
+      },
+      () => {},
     );
   }
 
@@ -70,7 +117,7 @@ export function renderWaitTimer(progress: PlayerProgress, planLine?: HTMLElement
     if (running && !samePlan(running.plan, plan)) reset();
     shown = plan;
     root.hidden = !plan;
-    if (plan) renderPlayersWarning(plan);
+    renderWarnings(plan);
     if (!plan || running) return;
     const leave = leaveText(plan);
     const seconds = waitTenths(plan.wait);

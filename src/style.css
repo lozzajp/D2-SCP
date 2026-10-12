@@ -1383,6 +1383,10 @@ button.preset {
   color: var(--success);
 }
 
+.caption .auto-badge {
+  margin-left: 0.5rem;
+}
+
 .badge.coarse-badge {
   display: inline-block;
   margin: 0.25rem 0;
@@ -1719,6 +1723,16 @@ button.preset {
 
 .players-change-badge .dismiss-button:hover {
   color: var(--text-strong);
+}
+
+.players-change-badge.locked-change-badge {
+  border-color: var(--red);
+  color: var(--red-bright);
+  background: var(--red-deep);
+}
+
+.locked-change-badge .dismiss-button {
+  color: var(--red-bright);
 }
 
 .dismiss-x {

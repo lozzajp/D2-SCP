@@ -92,6 +92,16 @@ describe("PlayerProgress", () => {
     expect(progress.lastPlan).toMatchObject({ players: 7, draw: 411 });
   });
 
+  it("retires the plan without changing the seed", () => {
+    const progress = new PlayerProgress(memoryStorage());
+    progress.setKnownSeed({ gameSeed: 1, gameType: "seedFlag" });
+    progress.setPlan({ area: "lowerKurast", players: 5, draw: 300, seed: 4468, rune: "Ber", wait: 5, distance: 400, fireRate: 2, stops: [] });
+    progress.retirePlan();
+    expect(progress.plan).toBeNull();
+    expect(progress.lastPlan).toMatchObject({ players: 5, draw: 300 });
+    expect(progress.knownSeed?.gameSeed).toBe(1);
+  });
+
   it("remembers the picked plan, ignoring bad ones", () => {
     const storage = memoryStorage();
     const plan = {
