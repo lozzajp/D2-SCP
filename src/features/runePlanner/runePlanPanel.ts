@@ -410,21 +410,6 @@ export function renderPlanFilters(progress: PlayerProgress): HTMLElement {
     coarseBadge,
     modeHint,
     field("Sort", sort),
-    el(
-      "details",
-      { className: "advanced" },
-      el("summary", { textContent: "How plans are chosen" }),
-      el("p", {
-        textContent:
-          "Every area and /players setting drops different items from the same chest seeds, so plans cover each one you have switched on. " +
-          "Each plan is tagged with its area and player count: set that in game before you open the chest.",
-      }),
-      el("p", {}, "Which runes are listed, and the longest River of Flame wait for each, are set on ", runePicksLink("Rune Picks"), "."),
-      el("p", {
-        textContent:
-          "If you're lucky to have some grouped together within 100 draws, pick the earliest one to increase chances of it appearing in a later chest or later runes popping later too.",
-      }),
-    ),
   );
   return root;
 }

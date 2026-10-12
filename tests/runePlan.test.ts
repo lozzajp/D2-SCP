@@ -29,7 +29,7 @@ const berGame: RunePlanOptions = { gameSeed: 638589163, gameType: "seedFlag", di
 
 describe("chestRunes", () => {
   it("never finds a rune above Ber in Lower Kurast", () => {
-    expect(CHEST_RUNES.at(-1)).toBe("Cham");
+    expect(CHEST_RUNES.at(-1)).toBe("Zod");
     expect(runesUpTo("Ber").at(-1)).toBe("Ber");
     const found = new Set<string>();
     for (let seed = 1; seed <= patterns.seedCount; seed++) {
@@ -49,7 +49,7 @@ describe("chestRunes", () => {
     }
     expect(found.has("Jah")).toBe(true);
     expect(found.has("Cham")).toBe(true);
-    expect([...found].filter((rune) => !CHEST_RUNES.includes(rune as Rune))).toEqual([]);
+    expect([...found].filter((rune) => !runesUpTo("Cham").includes(rune as Rune))).toEqual([]);
   });
 
   it("finds the Ber in chest seed 4468", () => {

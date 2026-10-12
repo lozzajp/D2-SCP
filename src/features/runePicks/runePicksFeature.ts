@@ -1,6 +1,6 @@
 import type { Feature } from "../../app/feature";
 import type { PlayerProgress } from "../../app/progress";
-import { CHEST_RUNES, DEFAULT_MIN_RUNE, MAX_PICK_WAIT_SECONDS, type Rune } from "../../chest/runePlan";
+import { CHEST_RUNES, MAX_PICK_WAIT_SECONDS, type Rune } from "../../chest/runePlan";
 import { button, el } from "../../ui/dom";
 import { plural } from "../../ui/format";
 
@@ -39,9 +39,13 @@ function renderRunePicksPanel(progress: PlayerProgress): HTMLElement {
   const minRune = el(
     "select",
     {},
-    ...[...CHEST_RUNES].reverse().map((rune) => el("option", { value: rune, textContent: rune })),
+    el("option", { value: "", textContent: "Choose…" }),
+    ...[...CHEST_RUNES].reverse().map((rune) => el("option", { value: rune, textContent: `${rune}+` })),
   );
-  minRune.value = DEFAULT_MIN_RUNE;
+  minRune.addEventListener("change", () => {
+    if (minRune.value) progress.pickRunesFrom(minRune.value as Rune);
+    minRune.value = "";
+  });
 
   const rows = [...CHEST_RUNES].reverse().map((rune) => {
     const check = el("input", { type: "checkbox" });
@@ -84,7 +88,6 @@ function renderRunePicksPanel(progress: PlayerProgress): HTMLElement {
         "Tick the runes you want your plans to look for, and the longest you'll wait at River of Flame for each. " +
         "Waypoint-only plans have no wait, so for those only the tick matters.",
     }),
-    el("p", { className: "hint", textContent: "Zod never drops from these super chests, so the list starts at Cham." }),
     el(
       "div",
       { className: "rune-picks-tools" },
@@ -92,8 +95,7 @@ function renderRunePicksPanel(progress: PlayerProgress): HTMLElement {
       button("Apply to all", applyAll, "primary"),
       button("Pick all", () => progress.setAllRunePicks({ on: true }), "small"),
       button("Pick none", () => progress.setAllRunePicks({ on: false }), "small"),
-      el("label", {}, "Pick ", minRune, "+ "),
-      button("Pick", () => progress.pickRunesFrom(minRune.value as Rune), "small"),
+      el("label", {}, "Pick All From: ", minRune),
       allError,
     ),
     el("ul", { className: "rune-pick-list" }, ...rows.map(({ row }) => row)),

@@ -9,7 +9,7 @@ export const RUNES = [
   "Ko", "Fal", "Lem", "Pul", "Um", "Mal", "Ist", "Gul", "Vex", "Ohm", "Lo", "Sur", "Ber", "Jah", "Cham", "Zod",
 ] as const;
 export type Rune = (typeof RUNES)[number];
-export const CHEST_RUNES: readonly Rune[] = RUNES.slice(0, RUNES.indexOf("Cham") + 1);
+export const CHEST_RUNES: readonly Rune[] = RUNES;
 
 export function runesUpTo(top: Rune): readonly Rune[] {
   return CHEST_RUNES.slice(0, CHEST_RUNES.indexOf(top) + 1);

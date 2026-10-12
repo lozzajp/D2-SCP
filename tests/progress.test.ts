@@ -118,7 +118,7 @@ describe("PlayerProgress", () => {
     new PlayerProgress(storage).setPlan(plan);
     expect(new PlayerProgress(storage).plan).toEqual(plan);
 
-    for (const bad of [{ ...plan, rune: "Zod" }, { ...plan, seed: 0 }, { ...plan, fireRate: 0 }, { ...plan, draw: "411" }, { ...plan, stops: ["direct"] }]) {
+    for (const bad of [{ ...plan, rune: "Nope" }, { ...plan, seed: 0 }, { ...plan, fireRate: 0 }, { ...plan, draw: "411" }, { ...plan, stops: ["direct"] }]) {
       expect(new PlayerProgress(memoryStorage(JSON.stringify({ plan: bad }))).plan).toBeNull();
     }
     const { stops: _, area: __, players: ___, ...old } = plan;
@@ -235,21 +235,21 @@ describe("PlayerProgress", () => {
     progress.setAllRunePicks({ wait: 120 });
     expect(new Set(Object.values(progress.runePicks).map((pick) => pick.wait))).toEqual(new Set([120]));
     progress.setAllRunePicks({ on: true });
-    expect(progress.pickedRunes.size).toBe(32);
+    expect(progress.pickedRunes.size).toBe(33);
     progress.pickRunesFrom("Pul");
-    expect([...progress.pickedRunes.keys()]).toEqual(["Pul", "Um", "Mal", "Ist", "Gul", "Vex", "Ohm", "Lo", "Sur", "Ber", "Jah", "Cham"]);
+    expect([...progress.pickedRunes.keys()]).toEqual(["Pul", "Um", "Mal", "Ist", "Gul", "Vex", "Ohm", "Lo", "Sur", "Ber", "Jah", "Cham", "Zod"]);
     expect(progress.pickedRunes.get("Pul")).toBe(120);
     progress.setAllRunePicks({ on: true });
     progress.setRunePick("Ber", { wait: -5 });
     progress.setRunePick("Ber", { wait: 99999 });
     expect(progress.pickedRunes.get("Ber")).toBe(120);
-    progress.setRunePick("Zod" as never, { on: true });
-    expect(progress.pickedRunes.has("Zod" as never)).toBe(false);
+    progress.setRunePick("Nope" as never, { on: true });
+    expect(progress.pickedRunes.has("Nope" as never)).toBe(false);
   });
 
   it("turns an old lowest rune into rune picks", () => {
     const old = new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" })));
-    expect([...old.pickedRunes.keys()]).toEqual(["Jah", "Cham"]);
+    expect([...old.pickedRunes.keys()]).toEqual(["Jah", "Cham", "Zod"]);
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Bear" }))).pickedRunes.has("Pul")).toBe(true);
   });
 
