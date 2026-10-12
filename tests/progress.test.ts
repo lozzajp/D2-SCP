@@ -128,6 +128,12 @@ describe("PlayerProgress", () => {
     const long = { ...plan, draw: 1450, distance: 1460, wait: 0 };
     new PlayerProgress(storage).setPlan(long);
     expect(new PlayerProgress(storage).plan).toEqual(long);
+
+    const guess = { ...plan, otherSeeds: [{ gameSeed: 123456, gameType: "normal" as const }] };
+    new PlayerProgress(storage).setPlan(guess);
+    expect(new PlayerProgress(storage).plan).toEqual(guess);
+    const badSeeds = { ...plan, otherSeeds: [{ gameSeed: -1, gameType: "normal" }, { gameSeed: 5, gameType: "nope" }] };
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ plan: badSeeds }))).plan).toEqual(plan);
   });
 
   it("remembers the route mode, defaulting to waiting at River of Flame", () => {
@@ -230,6 +236,10 @@ describe("PlayerProgress", () => {
     expect(new Set(Object.values(progress.runePicks).map((pick) => pick.wait))).toEqual(new Set([120]));
     progress.setAllRunePicks({ on: true });
     expect(progress.pickedRunes.size).toBe(32);
+    progress.pickRunesFrom("Pul");
+    expect([...progress.pickedRunes.keys()]).toEqual(["Pul", "Um", "Mal", "Ist", "Gul", "Vex", "Ohm", "Lo", "Sur", "Ber", "Jah", "Cham"]);
+    expect(progress.pickedRunes.get("Pul")).toBe(120);
+    progress.setAllRunePicks({ on: true });
     progress.setRunePick("Ber", { wait: -5 });
     progress.setRunePick("Ber", { wait: 99999 });
     expect(progress.pickedRunes.get("Ber")).toBe(120);

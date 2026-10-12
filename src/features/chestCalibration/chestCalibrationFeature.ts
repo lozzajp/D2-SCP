@@ -127,7 +127,7 @@ function renderAreaPanel(progress: PlayerProgress): HTMLElement {
     directFirst,
     el("p", {
       className: "hint",
-      textContent: "Set the same /players in game while calibrating. Your route distance works for every player count afterwards.",
+      textContent: "Set the same /players while calibrating. Your route distance works for every player count afterwards.",
     }),
   );
 }

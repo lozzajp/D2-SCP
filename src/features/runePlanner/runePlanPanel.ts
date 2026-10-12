@@ -128,7 +128,7 @@ async function planNeedsLock(plan: PickedPlan): Promise<boolean> {
 
 export function renderSeedPlans(progress: PlayerProgress, seeds: readonly KnownSeed[], intro?: HTMLElement): HTMLElement {
   const sections = el("div", { className: "seed-plans" }, el("p", { className: "muted", textContent: "Loading chest drop patterns…" }));
-  const lists = seeds.map((seed) => ({ seed, list: createPlanList(progress, seed) }));
+  const lists = seeds.map((seed) => ({ seed, list: createPlanList(progress, seed, seeds.filter((other) => other !== seed)) }));
   let tables: Tables | undefined;
 
   function render(): void {
@@ -210,7 +210,7 @@ function renderPlayersWarning(progress: PlayerProgress): HTMLElement {
     root.replaceChildren(
       "Your last game was on ",
       lastText,
-      `${lastWhat}. Pick a plan with a different player count and you'll need to change it in game.`,
+      `${lastWhat}. Pick a plan with a different player count and you'll need to set /players to match.`,
     );
   };
   progress.subscribe(render);
@@ -257,7 +257,11 @@ export function renderRunePreview(progress: PlayerProgress, seed: KnownSeed): HT
   return root;
 }
 
-function createPlanList(progress: PlayerProgress, forSeed?: KnownSeed): { root: HTMLElement; render(seed: KnownSeed, tables: Tables): number } {
+function createPlanList(
+  progress: PlayerProgress,
+  forSeed?: KnownSeed,
+  otherSeeds: readonly KnownSeed[] = [],
+): { root: HTMLElement; render(seed: KnownSeed, tables: Tables): number } {
   const root = el("div", { className: "plan-list" });
   let showAll = false;
   let lastSeed = "";
@@ -331,7 +335,8 @@ function createPlanList(progress: PlayerProgress, forSeed?: KnownSeed): { root: 
         isPicked ? "Planned" : "Use this plan",
         () => {
           if (forSeed) progress.setKnownSeed(forSeed);
-          progress.setPlan(planOf(target, route.fireRate));
+          const plan = planOf(target, route.fireRate);
+          progress.setPlan(otherSeeds.length > 0 ? { ...plan, otherSeeds: [...otherSeeds] } : plan);
           const timer = root.closest(".plans-panel")?.querySelector(".wait-timer");
           requestAnimationFrame(() => timer?.scrollIntoView({ behavior: "smooth", block: "start" }));
         },

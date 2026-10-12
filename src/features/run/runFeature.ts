@@ -531,7 +531,7 @@ function runSteps(plan: PickedPlan): (string | Node)[][] {
           ", do not move or pause game.",
         ];
   return [
-    ["Type ", el("strong", { textContent: `/players ${plan.players}` }), " in game chat if you haven't already."],
+    ["Set ", el("strong", { textContent: `/players ${plan.players}` }), " if you haven't already."],
     ["Use the wait timer above (it beeps at 10 seconds left and the last 5 seconds), or have a stopwatch ready."],
     travel,
     wait,

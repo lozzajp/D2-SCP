@@ -131,7 +131,7 @@ export function renderWaitTimer(progress: PlayerProgress, options: WaitTimerOpti
     playersNote.replaceChildren(
       "Make sure your game is on ",
       el("strong", { textContent: `/players ${plan.players}` }),
-      ` before you start: this plan's chest drops are for ${plan.players} players in ${chestArea(plan.area).name}. Type it in game chat if you're not sure.`,
+      ` before you start: this plan's chest drops are for ${plan.players} players in ${chestArea(plan.area).name}. Set /players ${plan.players} if you're not sure.`,
     );
     const before = hopsBefore(plan);
     if (seconds === 0 || plan.stops.at(-1) !== RIVER_OF_FLAME) {

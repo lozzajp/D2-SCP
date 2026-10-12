@@ -1,4 +1,4 @@
-import { GAME_TYPE_LABELS, type PickedPlan, type PlayerProgress } from "../../app/progress";
+import { GAME_TYPE_LABELS, type KnownSeed, type PickedPlan, type PlayerProgress } from "../../app/progress";
 import type { ChestSearch } from "../../chest/chestSeedMatcher";
 import { MAX_CHEST_DRAWS, chestSeedStream, findChestDraws, type DrawHit } from "../../chest/chestStream";
 import { refineAdvice } from "../../chest/refine";
@@ -48,15 +48,55 @@ export function renderPlanSummary(progress: PlayerProgress): HTMLElement {
 export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
   const badge = el("span", { className: "badge" });
   const status = el("p", { className: "lead" });
+  const tips = el("div", { className: "refine-tips" });
   const results = el("div", {});
   let search: ChestSearch | undefined;
-  let stream: { key: string; seeds: Uint16Array } | undefined;
+  const streams = new Map<string, Uint16Array>();
   let selected = 0;
   let selectionKey = "";
+
+  function streamFor(seed: KnownSeed, draws: number): Uint16Array {
+    const key = `${seed.gameSeed}:${seed.gameType}:${draws}`;
+    let seeds = streams.get(key);
+    if (!seeds) {
+      if (streams.size > 8) streams.clear();
+      seeds = chestSeedStream(seed.gameSeed, seed.gameType, draws);
+      streams.set(key, seeds);
+    }
+    return seeds;
+  }
+
+  function playersTip(plan: PickedPlan): HTMLElement | false {
+    const last = progress.lastPlan;
+    if (!last || last.players === plan.players) return false;
+    return el("p", {
+      className: "lead warning",
+      textContent: `Your last game was /players ${last.players} and this plan was /players ${plan.players}. If you didn't set /players ${plan.players} before your chest dropped, it rolled for the wrong player count and won't match the plan. Don't change calibrations from this chest.`,
+    });
+  }
+
+  function seedsTip(plan: PickedPlan, known: KnownSeed, candidates: ChestSearch["candidates"], picked: number[], draws: number): HTMLElement | false {
+    const others = (plan.otherSeeds ?? []).filter((other) => other.gameSeed !== known.gameSeed || other.gameType !== known.gameType);
+    if (others.length === 0) return false;
+    const guess = `Your gamble window matched ${others.length + 1} game seeds and this plan was for seed ${formatSeed(known.gameSeed)}, a 1 in ${others.length + 1} guess.`;
+    const fits = others
+      .map((other) => ({ other, hit: findChestDraws(streamFor(other, draws), candidates, picked, plan.draw)[0] }))
+      .filter((fit): fit is { other: KnownSeed; hit: DrawHit } => !!fit.hit)
+      .sort((a, b) => Math.abs(a.hit.draw - plan.draw) - Math.abs(b.hit.draw - plan.draw));
+    const best = fits[0];
+    return el(
+      "p",
+      { className: "lead warning" },
+      best
+        ? `${guess} Your chest fits game seed ${formatSeed(best.other.gameSeed)} at draw ${best.hit.draw} (${offsetText(best.hit.draw - plan.draw)}), so that was probably this game's real seed. That's likely why it missed: don't change calibrations from it.`
+        : `${guess} If your chest doesn't match, the game was likely one of the other seeds, so that's probably why: don't change calibrations from it.`,
+    );
+  }
 
   function render(): void {
     badge.hidden = true;
     results.replaceChildren();
+    tips.replaceChildren();
     const known = progress.knownSeed;
     const plan = progress.plan;
     if (!known || !plan) {
@@ -64,6 +104,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
       status.textContent = !known ? "You'll need this game's seed first." : "Pick a plan first, then come back with your chest's drops.";
       return;
     }
+    tips.replaceChildren(playersTip(plan) || "");
 
     const picked = [progress.chest("refine").seed].filter((seed) => seed !== null);
     const candidates = search?.candidates ?? [];
@@ -74,16 +115,15 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
     }
 
     const draws = plan.draw + MAX_CHEST_DRAWS;
-    const key = `${known.gameSeed}:${known.gameType}:${draws}`;
-    if (stream?.key !== key) stream = { key, seeds: chestSeedStream(known.gameSeed, known.gameType, draws) };
-    const hits = findChestDraws(stream.seeds, candidates, picked, plan.draw);
+    const hits = findChestDraws(streamFor(known, draws), candidates, picked, plan.draw);
     if (hits.length === 0) {
       status.className = "lead error";
       status.replaceChildren(
         `None of these chest seeds come up in the first ${draws} draws of game seed ${formatSeed(known.gameSeed)} (${GAME_TYPE_LABELS[known.gameType]}), so your game seed was probably wrong. `,
         el("a", { href: "#/run", textContent: "Find your game seed again" }),
-        ", or double-check your drops.",
+        `, double-check your drops, and make sure /players was ${plan.players}.`,
       );
+      tips.append(seedsTip(plan, known, candidates, picked, draws) || "");
       return;
     }
 
@@ -104,9 +144,11 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
       refinement(hit, plan),
     );
     const offset = hit.draw - plan.draw;
+    const kind = refineAdvice(offset);
+    if (kind === "far" || kind === "seed") tips.append(seedsTip(plan, known, candidates, picked, draws) || "");
     badge.hidden = false;
     badge.textContent = offset === 0 ? "On plan" : `${plural(Math.abs(offset), "draw")} ${offset > 0 ? "late" : "early"}`;
-    badge.classList.toggle("done", refineAdvice(offset) === "variance");
+    badge.classList.toggle("done", kind === "variance");
   }
 
   function hitRow(hit: DrawHit, index: number, plan: PickedPlan): HTMLElement {
@@ -210,6 +252,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
       { className: "panel" },
       el("div", { className: "panel-head" }, el("h2", { textContent: "How close was it?" }), badge),
       status,
+      tips,
       results,
     ),
     setSearch(next) {

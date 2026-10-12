@@ -1,6 +1,6 @@
 import type { Feature } from "../../app/feature";
 import type { PlayerProgress } from "../../app/progress";
-import { CHEST_RUNES, MAX_PICK_WAIT_SECONDS } from "../../chest/runePlan";
+import { CHEST_RUNES, DEFAULT_MIN_RUNE, MAX_PICK_WAIT_SECONDS, type Rune } from "../../chest/runePlan";
 import { button, el } from "../../ui/dom";
 import { plural } from "../../ui/format";
 
@@ -36,6 +36,12 @@ function renderRunePicksPanel(progress: PlayerProgress): HTMLElement {
   };
   allWait.addEventListener("keydown", (event) => event.key === "Enter" && applyAll());
   allWait.addEventListener("input", () => (allError.textContent = ""));
+  const minRune = el(
+    "select",
+    {},
+    ...[...CHEST_RUNES].reverse().map((rune) => el("option", { value: rune, textContent: rune })),
+  );
+  minRune.value = DEFAULT_MIN_RUNE;
 
   const rows = [...CHEST_RUNES].reverse().map((rune) => {
     const check = el("input", { type: "checkbox" });
@@ -86,6 +92,8 @@ function renderRunePicksPanel(progress: PlayerProgress): HTMLElement {
       button("Apply to all", applyAll, "primary"),
       button("Pick all", () => progress.setAllRunePicks({ on: true }), "small"),
       button("Pick none", () => progress.setAllRunePicks({ on: false }), "small"),
+      el("label", {}, "Pick ", minRune, "+ "),
+      button("Pick", () => progress.pickRunesFrom(minRune.value as Rune), "small"),
       allError,
     ),
     el("ul", { className: "rune-pick-list" }, ...rows.map(({ row }) => row)),

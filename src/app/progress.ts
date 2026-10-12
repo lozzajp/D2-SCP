@@ -99,6 +99,7 @@ export interface PickedPlan extends PatternTable {
   distance: number;
   fireRate: number;
   stops: WaypointId[];
+  otherSeeds?: KnownSeed[];
 }
 
 export type PlanSort = "soonest" | "best";
@@ -573,6 +574,13 @@ export class PlayerProgress {
     this.changed();
   }
 
+  pickRunesFrom(min: Rune): void {
+    const from = CHEST_RUNES.indexOf(min);
+    if (from < 0) return;
+    CHEST_RUNES.forEach((rune, index) => (this.saved.runePicks[rune] = cleanRunePick({ on: index >= from }, this.saved.runePicks[rune])));
+    this.changed();
+  }
+
   subscribe(listener: () => void): void {
     this.listeners.add(listener);
     if (this.collecting) this.scoped.add(listener);
@@ -716,7 +724,7 @@ function cleanChest(chest: unknown): ChestEntry {
 }
 
 function cleanPlan(plan: unknown, fallback: PatternTable): PickedPlan | null {
-  const { draw, seed, rune, wait, distance, fireRate, stops, area, players } = (plan ?? {}) as Partial<Record<keyof PickedPlan, unknown>>;
+  const { draw, seed, rune, wait, distance, fireRate, stops, area, players, otherSeeds } = (plan ?? {}) as Partial<Record<keyof PickedPlan, unknown>>;
   const route = stops === undefined ? [RIVER_OF_FLAME] : stops;
   const valid =
     Number.isInteger(draw) &&
@@ -732,6 +740,7 @@ function cleanPlan(plan: unknown, fallback: PatternTable): PickedPlan | null {
     Array.isArray(route) &&
     route.every((stop) => isRouteId(stop) && stop !== "direct");
   if (!valid) return null;
+  const others = cleanOtherSeeds(otherSeeds);
   return {
     draw,
     seed,
@@ -742,7 +751,19 @@ function cleanPlan(plan: unknown, fallback: PatternTable): PickedPlan | null {
     stops: [...route],
     area: isChestArea(area) ? area : fallback.area,
     players: isPlayerCount(players) ? players : fallback.players,
+    ...(others.length > 0 ? { otherSeeds: others } : {}),
   } as PickedPlan;
+}
+
+function cleanOtherSeeds(seeds: unknown): KnownSeed[] {
+  if (!Array.isArray(seeds)) return [];
+  return seeds
+    .filter((seed): seed is KnownSeed => {
+      const { gameSeed, gameType } = (seed ?? {}) as Partial<Record<keyof KnownSeed, unknown>>;
+      return Number.isInteger(gameSeed) && (gameSeed as number) >= 0 && (gameSeed as number) < 2 ** 32 && GAME_TYPES.includes(gameType as GameType);
+    })
+    .slice(0, 16)
+    .map(({ gameSeed, gameType }) => ({ gameSeed, gameType }));
 }
 
 export function cleanRouteSamples(samples: unknown): RouteSample[] {

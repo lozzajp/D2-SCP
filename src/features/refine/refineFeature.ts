@@ -11,6 +11,7 @@ function steps(progress: PlayerProgress): readonly GuideStep[] {
     ["Optional: only needed if your chests keep missing the plan. Pick a plan on the ", el("a", { href: "#/run", textContent: "Run page" }), " and run it."],
     "Open your first super chest and enter what it dropped below.",
     `See how many draws early or late your chest landed. Within 20 is normal, 21-50 means measure your ${progress.hasWaypointRoutes ? "Direct and River of Flame routes" : "Direct route"} again, 50+ means a route is well off, and 1,000+ or not found means your game seed was wrong.`,
+    "Missed by a lot? If your gamble window matched more than one game seed, or you changed /players since your last game, that's the likely cause: tips will show below, and don't recalibrate from that chest.",
     "You can also enter your other super chests contents here for curiosity, but shouldn't refine settings based on them.",
     "Still struggling? Enter all 3 superchests in your first hut area, and see if one of them loaded first, e.g. has a lower roll than the others. Calibrate your runs toward that one.",
     "Once you are refined to getting within 20 draws, trust the process and just keep running games!",
