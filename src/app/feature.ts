@@ -11,7 +11,6 @@ export interface Feature {
   summary: string | ((progress: PlayerProgress) => string);
   ready: boolean;
   isDone?(progress: PlayerProgress): boolean;
-  hidden?: boolean;
   tableScoped?: boolean;
   createPage(progress: PlayerProgress): Page;
 }

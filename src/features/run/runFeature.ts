@@ -1,8 +1,9 @@
 import type { Feature } from "../../app/feature";
 import type { PickedPlan, PlayerProgress } from "../../app/progress";
+import { openSettingsMenu } from "../../app/settingsMenu";
 import { CHEST_AREAS, chestArea } from "../../chest/areas";
 import { hasRepeats, RIVER_OF_FLAME, routeText } from "../../chest/waypoints";
-import { PLATFORMS } from "../../gamble/settings";
+import { GAME_VERSIONS, PLATFORMS } from "../../gamble/settings";
 import { gameSeedsFromStoreSeed } from "../../rng/gameSeed";
 import { MAX_MATCHES, SeedSearch, type SearchOutcome } from "../../search/seedSearch";
 import { button, el } from "../../ui/dom";
@@ -14,8 +15,8 @@ import { renderBoardInput, type BoardInput } from "../seedFinder/boardInput";
 import { NORMAL_D2R_GAME } from "../seedFinder/gameSeeds";
 import { AUTO_DELAY_MS, QUICK_ITEMS, renderQuickOptions } from "../seedFinder/quickSearch";
 import { loadState, searchParamsOf, type Setup } from "../seedFinder/state";
-import { renderMatchBody, type UseSeed } from "../seedFinder/steps/resultsStep";
-import { RateMeter } from "../seedFinder/steps/searchStep";
+import { renderMatchBody, type UseSeed } from "../seedFinder/matchBody";
+import { RateMeter } from "../seedFinder/rateMeter";
 
 const BOARD_KEY = "d2lkscp-repeat-board";
 
@@ -43,7 +44,7 @@ interface Search {
 class RunPage {
   readonly root: HTMLElement;
   private readonly board: Board = loadBoard();
-  private setup: Setup;
+  private setup: Setup | null;
   private run: Search | null = null;
   private refreshQueued = false;
 
@@ -118,30 +119,50 @@ class RunPage {
   }
 
   private changed(): void {
-    const { platform, charLevel } = this.currentSetup();
-    const platformLabel = PLATFORMS.find(({ id }) => id === platform)?.label ?? platform;
-    this.setupLine.replaceChildren(
-      `${platformLabel}, character level ${charLevel}. `,
-      el("a", { href: "#/seed", textContent: "Change setup, type in a seed, or use the step-by-step finder" }),
-      ".",
-    );
+    const setup = this.currentSetup();
+    if (setup === null) {
+      this.setupLine.className = "lead error";
+      this.setupLine.replaceChildren(
+        "Set your character level, platform and version in ",
+        el("a", { href: "#/calibrate", textContent: "Player Settings on the Calibrate page" }),
+        " before filling in the gamble window.",
+      );
+    } else {
+      const versionLabel = GAME_VERSIONS.find(({ id }) => id === setup.version)?.label ?? setup.version;
+      const platformLabel = PLATFORMS.find(({ id }) => id === setup.platform)?.label ?? setup.platform;
+      this.setupLine.className = "hint";
+      this.setupLine.replaceChildren(
+        `${versionLabel}, ${platformLabel}, character level ${setup.charLevel}. `,
+        el("a", { href: "#/run", textContent: "Change in settings", onclick: openSettingsMenu }),
+        ".",
+      );
+    }
     const seedKey = seedKeyOf(this.progress);
     if (seedKey !== this.seedKey) {
       this.seedKey = seedKey;
       if (!this.run && this.seedPlans.hidden) this.plan.hidden = this.progress.knownSeed === null;
     }
     this.afterPlan.hidden = this.progress.plan === null || (this.plan.hidden && this.seedPlans.hidden);
-    if (this.run || (platform === this.setup.platform && charLevel === this.setup.charLevel)) return;
-    this.setup = this.currentSetup();
+    if (this.run || JSON.stringify(setup) === JSON.stringify(this.setup)) return;
+    this.setup = setup;
     this.renderInput();
   }
 
-  private currentSetup(): Setup {
-    return { ...loadState().setup, platform: this.progress.platform, charLevel: this.progress.charLevel };
+  private currentSetup(): Setup | null {
+    const { platform, charLevel, version } = this.progress;
+    if (platform === null || charLevel === null || version === null) return null;
+    return { ...loadState().setup, version, platform, charLevel };
   }
 
-  private renderInput(): BoardInput {
+  private renderInput(): BoardInput | null {
     this.boardKey = JSON.stringify(this.board);
+    if (this.setup === null) {
+      this.inputBox.replaceChildren();
+      this.searchButton.disabled = true;
+      this.options.root.hidden = true;
+      return null;
+    }
+    this.options.root.hidden = false;
     const input = renderBoardInput(this.board, this.setup, (blocker) => {
       saveBoard(this.board);
       this.searchButton.disabled = blocker !== null || this.run !== null;
@@ -170,7 +191,7 @@ class RunPage {
     this.seedInput.value = "";
     this.hidePlans();
     this.setup = this.currentSetup();
-    this.renderInput().focus({ preventScroll: true });
+    this.renderInput()?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -220,6 +241,7 @@ class RunPage {
   }
 
   private start(scroll = false): void {
+    if (this.setup === null) return;
     this.stop();
     const setup = structuredClone(this.setup);
     const board = structuredClone(this.board);
@@ -369,7 +391,7 @@ class RunPage {
     if (run?.search !== search) return;
     this.run = null;
     this.showNewMatches(run);
-    this.searchButton.disabled = false;
+    this.searchButton.disabled = this.setup === null;
     this.stopButton.hidden = true;
     this.stats.textContent = run.stoppedOnFirst
       ? `Stopped at ${((search.seedsTested / search.seedCount) * 100).toFixed(1)}%: used the first window found.`

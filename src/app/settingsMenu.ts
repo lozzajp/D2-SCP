@@ -1,30 +1,29 @@
 import { CHEST_RUNES, FIRE_RATE_NOTE } from "../chest/runePlan";
-import { PLATFORMS } from "../gamble/settings";
 import { button, el } from "../ui/dom";
 import { formatSeed } from "../ui/format";
+import { playerSettingInputs } from "./playerSettings";
 import { GAME_TYPE_LABELS, type GameSettings, type PlayerProgress } from "./progress";
 
 const STORAGE_PREFIX = "d2lkscp-";
+
+export function openSettingsMenu(event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+  const menu = document.querySelector<HTMLDetailsElement>("details.settings-menu");
+  if (!menu) return;
+  menu.open = true;
+  menu.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
 
 export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
   const summary = el("summary", { title: "Game settings" });
   const seedRow = el("div", { className: "settings-seed" });
   const fireRate = numberInput("fireRate", "0.1", "1.0 - 3.0");
-  const platform = el("select", {}, ...PLATFORMS.map(({ id, label }) => el("option", { value: id, textContent: label })));
-  platform.addEventListener("change", () => {
-    const picked = PLATFORMS.find(({ id }) => id === platform.value);
-    if (picked) progress.setPlatform(picked.id);
-  });
+  const player = playerSettingInputs(progress);
   const minRune = el("select", {}, ...CHEST_RUNES.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
   minRune.addEventListener("change", () => {
     const rune = CHEST_RUNES.find((chestRune) => chestRune === minRune.value);
     if (rune) progress.setMinRune(rune);
-  });
-  const charLevel = el("input", { type: "number", min: "1", max: "99", step: "1", className: "level-input" });
-  charLevel.addEventListener("change", () => {
-    const level = Number(charLevel.value);
-    if (charLevel.value.trim() !== "" && Number.isFinite(level)) progress.setCharLevel(Math.min(99, Math.max(1, level)));
-    charLevel.value = String(progress.charLevel);
   });
 
   function numberInput(key: keyof GameSettings, step: string, placeholder: string): HTMLInputElement {
@@ -48,8 +47,14 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
         { className: "settings-section" },
         el("h3", { textContent: "Seed" }),
         seedRow,
-        el("label", {}, el("span", { textContent: "Platform" }), platform),
-        el("label", {}, el("span", { textContent: "Character level" }), charLevel),
+      ),
+      el(
+        "section",
+        { className: "settings-section" },
+        el("h3", { textContent: "Player Settings" }),
+        el("label", {}, el("span", { textContent: "Character level" }), player.level),
+        el("label", {}, el("span", { textContent: "Platform" }), player.platform),
+        el("label", {}, el("span", { textContent: "Version" }), player.version),
       ),
       el(
         "section",
@@ -75,7 +80,7 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
     const settings = progress.settings;
     summary.replaceChildren(
       item("Seed", known ? formatSeed(known.gameSeed) : null),
-      item("Level", String(progress.charLevel)),
+      item("Level", progress.charLevel === null ? null : String(progress.charLevel)),
       item("Fire", settings.fireRate === null ? null : `${settings.fireRate}×/s`),
       item("Rune", `${progress.minRune}+`),
     );
@@ -85,7 +90,7 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
         ? [
             el("code", { textContent: formatSeed(known.gameSeed) }),
             el("span", { className: "muted", textContent: GAME_TYPE_LABELS[known.gameType] }),
-            el("a", { href: "#/seed", textContent: "Change", onclick: closeMenu }),
+            el("a", { href: "#/run", textContent: "Change", onclick: closeMenu }),
           ]
         : [
             el("span", { className: "muted", textContent: "Not known yet." }),
@@ -93,8 +98,7 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
           ]),
     );
     if (document.activeElement !== fireRate) fireRate.value = settings.fireRate?.toString() ?? "";
-    platform.value = progress.platform;
-    if (document.activeElement !== charLevel) charLevel.value = String(progress.charLevel);
+    player.render();
     minRune.value = progress.minRune;
   };
   progress.subscribe(render);

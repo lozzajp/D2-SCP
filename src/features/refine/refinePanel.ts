@@ -84,7 +84,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
       status.className = "lead error";
       status.replaceChildren(
         `None of these chest seeds come up in the first ${draws} draws of game seed ${formatSeed(known.gameSeed)} (${GAME_TYPE_LABELS[known.gameType]}), so your game seed was probably wrong. `,
-        el("a", { href: "#/seed", textContent: "Find your game seed again" }),
+        el("a", { href: "#/run", textContent: "Find your game seed again" }),
         ", or double-check your drops.",
       );
       return;
@@ -187,7 +187,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
             "p",
             { className: "lead error" },
             "Over 1,000 draws out: your game seed was probably wrong. ",
-            el("a", { href: "#/seed", textContent: "Find your game seed again" }),
+            el("a", { href: "#/run", textContent: "Find your game seed again" }),
             ".",
           ),
         ];

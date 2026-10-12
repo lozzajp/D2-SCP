@@ -14,7 +14,6 @@ export function mountShell(container: Element, features: readonly Feature[], pro
 
   const nav = el("nav", { className: "main-nav" });
   for (const feature of features) {
-    if (feature.hidden) continue;
     const link = el("a", { href: `#/${feature.id}`, textContent: feature.title });
     navLinks.set(feature.id, link);
     nav.append(link);
@@ -23,11 +22,12 @@ export function mountShell(container: Element, features: readonly Feature[], pro
 
   const calibrateLink = navLinks.get("calibrate");
   if (calibrateLink) {
-    const markCalibrate = () =>
-      calibrateLink.classList.toggle(
-        "needs-attention",
-        !CHEST_AREAS.some(({ id }) => progress.isCalibrated(id)),
-      );
+    const markCalibrate = () => {
+      const missing = progress.playerSettingsMissing;
+      const attention = missing || !CHEST_AREAS.some(({ id }) => progress.isCalibrated(id));
+      calibrateLink.classList.toggle("needs-attention", attention);
+      calibrateLink.title = missing ? "Set your Player Settings" : attention ? "Calibrate an area" : "";
+    };
     progress.subscribe(markCalibrate);
     markCalibrate();
   }

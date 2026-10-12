@@ -161,18 +161,37 @@ describe("PlayerProgress", () => {
   it("remembers the platform, and sets the fire rate seen on it", () => {
     const storage = memoryStorage();
     const progress = new PlayerProgress(storage);
-    expect(progress.platform).toBe("pc");
+    expect(progress.platform).toBeNull();
     progress.setPlatform("ps");
     expect(progress.settings.fireRate).toBe(1.7);
     progress.updateSettings({ fireRate: 2.2 });
     progress.setPlatform("xbox");
     expect(progress.settings.fireRate).toBe(2.2);
     expect(new PlayerProgress(storage).platform).toBe("xbox");
-    expect(new PlayerProgress(memoryStorage(JSON.stringify({ platform: "n64" }))).platform).toBe("pc");
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ platform: "n64" }))).platform).toBeNull();
+  });
+
+  it("requires player settings from new players, keeping older saves working", () => {
+    const storage = memoryStorage();
+    const progress = new PlayerProgress(storage);
+    expect([progress.charLevel, progress.platform, progress.version]).toEqual([null, null, null]);
+    expect(progress.playerSettingsMissing).toBe(true);
+    progress.setCharLevel(90);
+    expect(new PlayerProgress(storage).platform).toBeNull();
+    progress.setPlatform("pc");
+    progress.setVersion("d2r");
+    const reloaded = new PlayerProgress(storage);
+    expect([reloaded.charLevel, reloaded.platform, reloaded.version]).toEqual([90, "pc", "d2r"]);
+    expect(reloaded.playerSettingsMissing).toBe(false);
+
+    const older = new PlayerProgress(memoryStorage(JSON.stringify({ platform: "switch", charLevel: 80 })));
+    expect([older.charLevel, older.platform, older.version]).toEqual([80, "switch", "row"]);
   });
 
   it("fills in the platform's fire rate when a seed is found, without replacing one already set", () => {
     const progress = new PlayerProgress(memoryStorage());
+    progress.setPlatform("pc");
+    progress.updateSettings({ fireRate: null });
     progress.setKnownSeed({ gameSeed: 1, gameType: "seedFlag" });
     expect(progress.settings.fireRate).toBe(3);
     progress.updateSettings({ fireRate: 2.5 });

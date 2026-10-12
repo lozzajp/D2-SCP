@@ -34,8 +34,8 @@ import {
 } from "../chest/waypoints";
 import { isChestDrop } from "../data/chestDrops";
 import presetCalibration from "../data/lozzajpCalibration.json";
-import { PLATFORMS, type PlatformId } from "../gamble/settings";
-import { loadState } from "../features/seedFinder/state";
+import { GAME_VERSIONS, PLATFORMS, type GameVersionId, type PlatformId } from "../gamble/settings";
+import { hasSavedState, loadState } from "../features/seedFinder/state";
 import { STORE_SEED_DRAWS, type GameType } from "../rng/gameSeed";
 
 export interface KnownSeed {
@@ -114,8 +114,9 @@ interface AreaSaved {
 interface Saved {
   seed: KnownSeed | null;
   seedHistory: PreviousSeed[];
-  platform: PlatformId;
-  charLevel: number;
+  platform: PlatformId | null;
+  charLevel: number | null;
+  version: GameVersionId | null;
   fireRate: number | null;
   area: ChestAreaId;
   players: PlayerCount;
@@ -312,11 +313,11 @@ export class PlayerProgress {
     if (seed && !this.saved.seedHistory.some((past) => sameSeed(past, seed))) {
       this.saved.seedHistory = [{ ...seed, foundAt: Date.now() }, ...this.saved.seedHistory].slice(0, MAX_SEED_HISTORY);
     }
-    if (seed && this.saved.fireRate === null) this.useFireRateOf(this.saved.platform);
+    if (seed && this.saved.fireRate === null && this.saved.platform !== null) this.useFireRateOf(this.saved.platform);
     this.changed();
   }
 
-  get platform(): PlatformId {
+  get platform(): PlatformId | null {
     return this.saved.platform;
   }
 
@@ -330,7 +331,7 @@ export class PlayerProgress {
     this.saved.fireRate = PLATFORM_FIRE_RATES[platform] ?? this.saved.fireRate;
   }
 
-  get charLevel(): number {
+  get charLevel(): number | null {
     return this.saved.charLevel;
   }
 
@@ -339,6 +340,20 @@ export class PlayerProgress {
     if (clean === null || clean === this.saved.charLevel) return;
     this.saved.charLevel = clean;
     this.changed();
+  }
+
+  get version(): GameVersionId | null {
+    return this.saved.version;
+  }
+
+  setVersion(version: GameVersionId): void {
+    if (version === this.saved.version) return;
+    this.saved.version = version;
+    this.changed();
+  }
+
+  get playerSettingsMissing(): boolean {
+    return this.saved.platform === null || this.saved.charLevel === null || this.saved.version === null;
   }
 
   get settings(): GameSettings {
@@ -563,10 +578,14 @@ type LegacySaved = Partial<Saved> &
 
 function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
   let data: LegacySaved = {};
+  let returning = false;
   try {
-    data = JSON.parse(storage?.getItem(STORAGE_KEY) ?? "{}") ?? {};
+    const raw = storage?.getItem(STORAGE_KEY) ?? null;
+    returning = raw !== null || hasSavedState(storage);
+    data = JSON.parse(raw ?? "{}") ?? {};
   } catch {
   }
+  const legacy = returning ? loadState(storage).setup : null;
   const savedAreas = (data.areas ?? null) as Partial<Record<ChestAreaId, unknown>> | null;
   const areas = Object.fromEntries(
     CHEST_AREAS.map(({ id }) => [id, savedAreas ? cleanArea(savedAreas[id], id) : id === DEFAULT_AREA ? legacyArea(data) : cleanArea(null, id)]),
@@ -578,8 +597,9 @@ function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
   return {
     seed: cleanSeed(data.seed),
     seedHistory: cleanSeedHistory(data.seedHistory),
-    platform: PLATFORMS.some((platform) => platform.id === data.platform) ? data.platform! : "pc",
-    charLevel: cleanCharLevel(data.charLevel) ?? loadState(storage).setup.charLevel,
+    platform: "platform" in data ? (PLATFORMS.some((platform) => platform.id === data.platform) ? data.platform! : null) : (legacy?.platform ?? null),
+    charLevel: "charLevel" in data ? cleanCharLevel(data.charLevel) : (legacy?.charLevel ?? null),
+    version: "version" in data ? (GAME_VERSIONS.some((version) => version.id === data.version) ? data.version! : null) : (legacy?.version ?? null),
     fireRate,
     area,
     players,

@@ -1,5 +1,6 @@
 import type { Feature } from "../../app/feature";
 import { guidePanel, type GuideStep } from "../../app/guidePanel";
+import { renderPlayerSettingsPanel } from "../../app/playerSettings";
 import { WAYPOINT_TARGET, type CalibrateTarget, type PlayerProgress } from "../../app/progress";
 import { CHEST_AREAS } from "../../chest/areas";
 import { choiceTabs, el, field } from "../../ui/dom";
@@ -146,6 +147,7 @@ export const chestCalibration: Feature = {
       root: el(
         "div",
         { className: "page" },
+        renderPlayerSettingsPanel(progress),
         renderAreaPanel(progress),
         guidePanel({
           title:

@@ -30,6 +30,14 @@ export interface AppState {
 
 const STORAGE_KEY = "d2lkscp-seed-finder";
 
+export function hasSavedState(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): boolean {
+  try {
+    return storage?.getItem(STORAGE_KEY) != null;
+  } catch {
+    return false;
+  }
+}
+
 export function defaultState(): AppState {
   return {
     setup: { version: "row", platform: "pc", poolOrderOverride: null, charLevel: 92 },
