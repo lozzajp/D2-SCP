@@ -172,7 +172,8 @@ describe("PlayerProgress", () => {
     new PlayerProgress(storage).setMinRune("Ber");
     expect(new PlayerProgress(storage).minRune).toBe("Ber");
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Bear" }))).minRune).toBe("Pul");
-    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" }))).minRune).toBe("Pul");
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Zod" }))).minRune).toBe("Pul");
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" }))).minRune).toBe("Ber");
   });
 
   it("ignores bad saved settings", () => {
@@ -316,5 +317,73 @@ describe("PlayerProgress", () => {
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ routeSamples }))).routeSamples).toEqual([
       { route: "direct", draw: 72, gameSeed: 5 },
     ]);
+  });
+});
+
+describe("PlayerProgress chest areas", () => {
+  it("starts in Lower Kurast with 7 players, and keeps old saves there", () => {
+    const routeSamples = [{ route: "travincal", draw: 120, gameSeed: 4 }];
+    const progress = new PlayerProgress(memoryStorage(JSON.stringify({ routeSamples, settings: { fireRate: 1.7 } })));
+    expect(progress.area.id).toBe("lowerKurast");
+    expect(progress.players).toBe(7);
+    expect(progress.chestTable).toEqual({ area: "lowerKurast", players: 7 });
+    expect(progress.routeSamples).toEqual(routeSamples);
+    progress.setArea("riverOfFlame");
+    expect(progress.routeSamples).toEqual([]);
+    expect(progress.settings.fireRate).toBe(1.7);
+  });
+
+  it("keeps calibration separate per area, with only the Direct route in River of Flame", () => {
+    const storage = memoryStorage();
+    const progress = new PlayerProgress(storage);
+    progress.setKnownSeed({ gameSeed: 1, gameType: "normal" });
+    progress.addRouteSample("direct", 70);
+    progress.setArea("riverOfFlame");
+    expect(progress.hasWaypointRoutes).toBe(false);
+    expect(progress.calibrationRoutes).toEqual(["direct"]);
+    expect(progress.offersPresetCalibration).toBe(false);
+    progress.addRouteSample("travincal", 140);
+    expect(progress.routeSamples).toEqual([]);
+    progress.addRouteSample("direct", 90);
+    expect(progress.riverAdds).toBe(0);
+    expect(progress.riverStart).toBe(90);
+    progress.setRouteMode("combo");
+    expect(progress.routeMode).toBe("wait");
+    progress.importRouteSamples([{ route: "travincal", draw: 130, gameSeed: null }], false);
+    expect(progress.routeSamples.map((sample) => sample.route)).toEqual(["direct"]);
+
+    const reloaded = new PlayerProgress(storage);
+    expect(reloaded.area.id).toBe("riverOfFlame");
+    expect(reloaded.settings.distanceToFirstChest).toBe(90);
+    reloaded.setArea("lowerKurast");
+    expect(reloaded.settings.distanceToFirstChest).toBe(70);
+    expect(reloaded.hasWaypointRoutes).toBe(true);
+  });
+
+  it("lets both areas pick 1, 3, 5 or 7 players, and tells listeners when the table changes", () => {
+    const storage = memoryStorage();
+    const progress = new PlayerProgress(storage);
+    const tables: string[] = [];
+    progress.onTableChange(() => tables.push(`${progress.chestTable.area}-${progress.chestTable.players}`));
+    progress.setPlayers(4 as never);
+    expect(progress.players).toBe(7);
+    progress.setPlayers(1);
+    progress.setArea("riverOfFlame");
+    progress.setPlayers(5);
+    progress.setPlayers(5);
+    expect(tables).toEqual(["lowerKurast-1", "riverOfFlame-1", "riverOfFlame-5"]);
+    expect(new PlayerProgress(storage).chestTable).toEqual({ area: "riverOfFlame", players: 5 });
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ players: 2 }))).players).toBe(7);
+  });
+
+  it("allows Jah and Cham as the lowest rune only in River of Flame", () => {
+    const progress = new PlayerProgress(memoryStorage());
+    progress.setArea("riverOfFlame");
+    expect(progress.chestRunes.at(-1)).toBe("Cham");
+    progress.setMinRune("Jah");
+    expect(progress.minRune).toBe("Jah");
+    progress.setArea("lowerKurast");
+    expect(progress.chestRunes.at(-1)).toBe("Ber");
+    expect(progress.minRune).toBe("Ber");
   });
 });

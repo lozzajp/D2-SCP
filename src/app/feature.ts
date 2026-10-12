@@ -8,7 +8,7 @@ export interface Page {
 export interface Feature {
   id: string;
   title: string;
-  summary: string;
+  summary: string | ((progress: PlayerProgress) => string);
   ready: boolean;
   isDone?(progress: PlayerProgress): boolean;
   createPage(progress: PlayerProgress): Page;

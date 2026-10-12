@@ -13,6 +13,13 @@ const SEED_STEPS: readonly GuideStep[] = [
   "Move on to calibration or rune plan",
 ];
 
+let newRunRequested = false;
+
+export function startNewRun(): void {
+  newRunRequested = true;
+  location.hash = "#/seed";
+}
+
 export const seedFinder: Feature = {
   id: "seed",
   title: "Find your game seed",
@@ -32,6 +39,11 @@ export const seedFinder: Feature = {
         renderKnownSeedPanel(progress),
         renderSeedConverter(),
       ),
+      onShow() {
+        if (!newRunRequested) return;
+        newRunRequested = false;
+        wizard.newRun();
+      },
     };
   },
 };

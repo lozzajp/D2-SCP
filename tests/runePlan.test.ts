@@ -1,14 +1,17 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import patternsData from "../src/data/lk_hell_p7.bin?inline";
+import rofP7Data from "../src/data/rof_hell_p7.bin?inline";
 import { ChestPatterns } from "../src/chest/patterns";
 import {
   CHEST_RUNES,
   MAX_BER_WAIT_SECONDS,
   MAX_REPEAT_DRAW,
   MAX_WAIT_SECONDS,
+  allowsLongWait,
   chestRunes,
   isLongWait,
   planRunes,
+  runesUpTo,
   type Rune,
   type RunePlanOptions,
   WAYPOINT_TOLERANCE,
@@ -23,15 +26,30 @@ beforeAll(async () => {
 const berGame: RunePlanOptions = { gameSeed: 638589163, gameType: "seedFlag", distance: 400, fireRate: 2, minRune: "Ber" };
 
 describe("chestRunes", () => {
-  it("never finds a rune above Ber, the last one listed in CHEST_RUNES", () => {
-    expect(CHEST_RUNES.at(-1)).toBe("Ber");
+  it("never finds a rune above Ber in Lower Kurast", () => {
+    expect(CHEST_RUNES.at(-1)).toBe("Cham");
+    expect(runesUpTo("Ber").at(-1)).toBe("Ber");
     const found = new Set<string>();
     for (let seed = 1; seed <= patterns.seedCount; seed++) {
       const runes = chestRunes(patterns, seed);
       for (const rune of [...runes.always, ...runes.ifLocked]) found.add(rune);
     }
     expect(found.has("Ber")).toBe(true);
+    expect([...found].filter((rune) => !runesUpTo("Ber").includes(rune as Rune))).toEqual([]);
+  });
+
+  it("finds Jah and Cham in River of Flame, nothing above", async () => {
+    const rof = new ChestPatterns(new Uint8Array(await (await fetch(rofP7Data)).arrayBuffer()));
+    const found = new Set<string>();
+    for (let seed = 1; seed <= rof.seedCount; seed++) {
+      const runes = chestRunes(rof, seed);
+      for (const rune of [...runes.always, ...runes.ifLocked]) found.add(rune);
+    }
+    expect(found.has("Jah")).toBe(true);
+    expect(found.has("Cham")).toBe(true);
     expect([...found].filter((rune) => !CHEST_RUNES.includes(rune as Rune))).toEqual([]);
+    expect(allowsLongWait("Cham")).toBe(true);
+    expect(allowsLongWait("Lo")).toBe(false);
   });
 
   it("finds the Ber in chest seed 4468", () => {

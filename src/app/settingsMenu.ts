@@ -1,5 +1,5 @@
 import { MAX_CHEST_DRAWS } from "../chest/chestStream";
-import { CHEST_RUNES, FIRE_RATE_NOTE } from "../chest/runePlan";
+import { FIRE_RATE_NOTE } from "../chest/runePlan";
 import { PLATFORMS } from "../gamble/settings";
 import { el } from "../ui/dom";
 import { formatSeed } from "../ui/format";
@@ -17,9 +17,9 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
     const picked = PLATFORMS.find(({ id }) => id === platform.value);
     if (picked) progress.setPlatform(picked.id);
   });
-  const minRune = el("select", {}, ...CHEST_RUNES.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
+  const minRune = el("select", {}, ...progress.chestRunes.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
   minRune.addEventListener("change", () => {
-    const rune = CHEST_RUNES.find((chestRune) => chestRune === minRune.value);
+    const rune = progress.chestRunes.find((chestRune) => chestRune === minRune.value);
     if (rune) progress.setMinRune(rune);
   });
   const charLevel = el("input", { type: "number", min: "1", max: "99", step: "1", className: "level-input" });
@@ -60,7 +60,7 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
         { className: "settings-section" },
         el("h3", { textContent: "Calibration" }),
         el("label", {}, el("span", { textContent: "Distance to first chest (direct)" }), distance),
-        el("div", { className: "settings-row" }, el("span", { textContent: "River of Flame adds" }), riverAdds),
+        progress.hasWaypointRoutes && el("div", { className: "settings-row" }, el("span", { textContent: "River of Flame adds" }), riverAdds),
         el("label", {}, el("span", { textContent: "Fire rate" }), el("span", { className: "with-unit" }, fireRate, "×/s")),
         el("p", { className: "hint", textContent: `(${FIRE_RATE_NOTE})` }),
       ),
@@ -87,10 +87,11 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
     const known = progress.knownSeed;
     const settings = progress.settings;
     summary.replaceChildren(
+      item("Area", progress.area.players.length > 1 ? `${progress.area.short} /p${progress.players}` : progress.area.short),
       item("Seed", known ? formatSeed(known.gameSeed) : null),
       item("Level", String(progress.charLevel)),
       item("Distance", settings.distanceToFirstChest === null ? null : String(settings.distanceToFirstChest)),
-      item("RoF", progress.riverAdds === null ? null : `+${progress.riverAdds}`),
+      ...(progress.hasWaypointRoutes ? [item("RoF", progress.riverAdds === null ? null : `+${progress.riverAdds}`)] : []),
       item("Fire", settings.fireRate === null ? null : `${settings.fireRate}×/s`),
       item("Rune", `${progress.minRune}+`),
     );

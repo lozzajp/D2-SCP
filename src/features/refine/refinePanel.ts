@@ -30,7 +30,7 @@ export function renderPlanSummary(progress: PlayerProgress): HTMLElement {
             el("code", { textContent: String(plan.seed) }),
             `). Route: ${routeText(plan.stops)}. ${waitText(plan.wait)}, planned from draw ${plan.distance} and fire rate ${plan.fireRate}×/s.`,
             plan.wait > MAX_WAIT_SECONDS &&
-              el("span", { className: "long-wait-tag", textContent: " Long Ber wait: any timing error grows with it." }),
+              el("span", { className: "long-wait-tag", textContent: ` Long ${plan.rune} wait: any timing error grows with it.` }),
           )
         : el(
             "p",
@@ -141,9 +141,10 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
     if (kind !== "variance" && Math.abs(offset) <= RECALIBRATE_WITHIN) {
       queueMicrotask(() => progress.flagRecalibrate(["direct", ...plan.stops]));
     }
+    const remeasure = ["direct" as const, ...plan.stops].filter((route) => progress.calibrationRoutes.includes(route));
     const recalibrate = el("a", {
       href: "#/calibrate",
-      textContent: `measure Direct and ${plan.stops.map(routeName).join(", ")} again in step 2`,
+      textContent: `measure ${remeasure.map(routeName).join(", ").replace(/, ([^,]*)$/, " and $1")} again in step 2`,
     });
 
     let advice: Node[];

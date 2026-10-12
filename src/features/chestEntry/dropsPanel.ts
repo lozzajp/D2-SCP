@@ -1,4 +1,4 @@
-import { CHEST_DROPS } from "../../data/chestDrops";
+import { CHEST_DROPS, chestDropsFor } from "../../data/chestDrops";
 import type { ChestSlot, PlayerProgress } from "../../app/progress";
 import { button, el } from "../../ui/dom";
 import { plural } from "../../ui/format";
@@ -25,7 +25,7 @@ export function renderDropsPanel(progress: PlayerProgress, slot: ChestSlot): HTM
   });
 
   const picker = createPicker(
-    CHEST_DROPS.map((drop) => ({ value: drop.name, name: drop.name, category: drop.category })),
+    chestDropsFor(progress.area.id).map((drop) => ({ value: drop.name, name: drop.name, category: drop.category })),
     (name) => {
       update([...drops, name]);
       return true;

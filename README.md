@@ -1,4 +1,4 @@
-A tool that looks ahead of RNG for what LK chests may contain in that game, and guiding steps to try hit RNG on the right steps (for example to pop a Ber rune). Useful for console games that cannot supply `-seed` or experimenting with RNG in the game. Only works offline of course.
+A tool that looks ahead of RNG for what Lower Kurast or River of Flame super chests may contain in that game, and guiding steps to try hit RNG on the right steps (for example to pop a Ber rune). Useful for console games that cannot supply `-seed` or experimenting with RNG in the game. Only works offline of course.
 
 Confirmed working for PC and PS5 on RotW.
 

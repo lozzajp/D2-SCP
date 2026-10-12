@@ -1,3 +1,4 @@
+import { CHEST_AREAS, isChestArea, type PlayerCount } from "../chest/areas";
 import { el } from "../ui/dom";
 import { renderCalibrateNextMenu } from "./calibrateNextMenu";
 import type { Feature, Page } from "./feature";
@@ -9,6 +10,16 @@ import { renderSettingsMenu } from "./settingsMenu";
 const HOME = "";
 
 export function mountShell(container: Element, features: readonly Feature[], progress: PlayerProgress): void {
+  let showRoute = buildShell(container, features, progress);
+  window.addEventListener("hashchange", () => showRoute());
+  progress.onTableChange(() => {
+    showRoute = buildShell(container, features, progress);
+    showRoute();
+  });
+  showRoute();
+}
+
+function buildShell(container: Element, features: readonly Feature[], progress: PlayerProgress): () => void {
   const pages = new Map<string, Page>();
   const outlet = el("main", { className: "outlet" });
   const navLinks = new Map<string, HTMLAnchorElement>();
@@ -26,7 +37,8 @@ export function mountShell(container: Element, features: readonly Feature[], pro
     if (!feature.ready) link.classList.add("not-ready");
   });
 
-  nav.append(renderCalibrateNextMenu(progress), renderSeedHistoryMenu(progress), renderSettingsMenu(progress));
+  if (progress.hasWaypointRoutes) nav.append(renderCalibrateNextMenu(progress));
+  nav.append(renderSeedHistoryMenu(progress), renderSettingsMenu(progress));
 
   const pageFor = (route: string): Page => {
     let page = pages.get(route);
@@ -57,14 +69,35 @@ export function mountShell(container: Element, features: readonly Feature[], pro
       { className: "page-head" },
       el("h1", {}, el("a", { href: "#/", textContent: "D2 SCP" })),
       el("p", { className: "tagline", textContent: "Diablo 2 Super Chest Planner" }),
+      renderAreaPicker(progress),
     ),
     nav,
     outlet,
     el("footer", { className: "page-foot" }),
   );
-  window.addEventListener("hashchange", showRoute);
   const applyMode = () => document.body.classList.toggle("advanced-mode", progress.advanced);
   progress.subscribe(applyMode);
   applyMode();
-  showRoute();
+  return showRoute;
+}
+
+function renderAreaPicker(progress: PlayerProgress): HTMLElement {
+  const area = el("select", {}, ...CHEST_AREAS.map(({ id, name, act }) => el("option", { value: id, textContent: `Act ${act}: ${name}` })));
+  area.value = progress.area.id;
+  area.addEventListener("change", () => {
+    if (isChestArea(area.value)) progress.setArea(area.value);
+  });
+  const choices: readonly PlayerCount[] = progress.area.players;
+  const players = el("select", {}, ...choices.map((count) => el("option", { value: String(count), textContent: `/players ${count}` })));
+  players.value = String(progress.players);
+  players.addEventListener("change", () => {
+    const count = choices.find((choice) => String(choice) === players.value);
+    if (count) progress.setPlayers(count);
+  });
+  return el(
+    "div",
+    { className: "area-picker" },
+    el("label", {}, el("span", { textContent: "Super chest area" }), area),
+    choices.length > 1 && el("label", {}, el("span", { textContent: "Players" }), players),
+  );
 }

@@ -4,6 +4,7 @@ import { button, el } from "../../ui/dom";
 import { waitTenths } from "../../ui/format";
 
 const COUNTDOWN_BEEPS = 5;
+const WARNING_SECONDS = 10;
 const LEAD_IN_SECONDS = 3;
 const START_SHOWN_SECONDS = 1;
 const TICK_MS = 100;
@@ -20,12 +21,14 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
   const clock = el("div", { className: "timer-clock" });
   const flash = el("div", { className: "timer-flash" });
   const note = el("p", { className: "hint" });
+  const playersNote = el("p", { className: "lead" });
   const startButton = button("Start timer", () => start(), "primary");
   const stopButton = button("Reset", () => reset());
   const root = el(
     "div",
     { className: "wait-timer", hidden: true },
     el("h3", { textContent: "Wait timer" }),
+    playersNote,
     note,
     flash,
     clock,
@@ -33,6 +36,8 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
   );
   let running: Running | null = null;
   let shown: PickedPlan | null = null;
+  const lk = progress.hasWaypointRoutes;
+  const leave = lk ? "take the waypoint to Lower Kurast" : "walk to the chest";
 
   function render(): void {
     const plan = progress.plan;
@@ -46,6 +51,11 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
     clock.className = "timer-clock";
     clock.textContent = clockText(plan.wait);
     flash.textContent = "";
+    playersNote.replaceChildren(
+      "Make sure your game is on ",
+      el("strong", { textContent: `/players ${progress.players}` }),
+      ` before you start: this plan's chest drops are for ${progress.players} players. Type it in game chat if you're not sure.`,
+    );
     const before = hopsBefore(plan);
     if (seconds === 0 || plan.stops.at(-1) !== RIVER_OF_FLAME) {
       startButton.hidden = true;
@@ -61,9 +71,9 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
     note.replaceChildren(
       ...before,
       seconds === 0
-        ? "No wait: take the waypoint to Lower Kurast as soon as you reach River of Flame."
-        : `Press Start, and on 3, 2, 1, START take the waypoint to River of Flame. It beeps the last ${COUNTDOWN_BEEPS} seconds, ` +
-            "then a long beep means take the waypoint to Lower Kurast. Keep this tab's sound on.",
+        ? `No wait: ${leave} as soon as you reach River of Flame.`
+        : `Press Start, and on 3, 2, 1, START take the waypoint to River of Flame. It beeps at ${WARNING_SECONDS} seconds left and the last ${COUNTDOWN_BEEPS} seconds, ` +
+            `then a long beep means ${leave}. Keep this tab's sound on.`,
     );
   }
 
@@ -106,8 +116,8 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
       return;
     }
     clock.className = "timer-clock go";
-    clock.textContent = "Lower Kurast Super Chest Time";
-    note.textContent = "Take the waypoint to Lower Kurast now.";
+    clock.textContent = `${progress.area.name} Super Chest Time`;
+    note.textContent = lk ? "Take the waypoint to Lower Kurast now." : "Walk to the chest now.";
     stopButton.textContent = "Reset";
   }
 
@@ -165,6 +175,7 @@ function scheduleBeeps(audio: AudioContext, wait: number): void {
   for (let count = 0; count < LEAD_IN_SECONDS; count++) beep(audio, now + count, 660, 0.15);
   const start = now + LEAD_IN_SECONDS;
   beep(audio, start, 990, 0.4);
+  if (wait - WARNING_SECONDS > 0) beep(audio, start + wait - WARNING_SECONDS, 880, 0.3);
   for (let left = COUNTDOWN_BEEPS; left >= 1; left--) {
     if (wait - left > 0) beep(audio, start + wait - left, 880, 0.12);
   }

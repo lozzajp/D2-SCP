@@ -225,6 +225,25 @@ button.small {
   background: linear-gradient(to right, var(--red), transparent);
 }
 
+.area-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.area-picker label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.area-picker select {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
 .page-foot {
   font-size: 0.85em;
   text-align: center;
@@ -1336,6 +1355,11 @@ button.preset {
 .badge.done {
   border-color: var(--success);
   color: var(--success);
+}
+
+.badge.locked-badge {
+  border-color: var(--red);
+  color: var(--red-bright);
 }
 
 .chest-result {

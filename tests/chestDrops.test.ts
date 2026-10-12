@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { CHEST_DROPS, isChestDrop } from "../src/data/chestDrops";
+import { CHEST_DROPS, chestDropsFor, isChestDrop } from "../src/data/chestDrops";
 
 describe("CHEST_DROPS", () => {
-  it("lists every Hell LK chest drop once", () => {
-    expect(CHEST_DROPS).toHaveLength(525);
+  it("lists every Hell LK and River of Flame chest drop once", () => {
+    expect(CHEST_DROPS).toHaveLength(541);
     expect(new Set(CHEST_DROPS.map((drop) => drop.name)).size).toBe(CHEST_DROPS.length);
+    expect(chestDropsFor("lowerKurast")).toHaveLength(526);
+    expect(chestDropsFor("riverOfFlame")).toHaveLength(541);
   });
 
-  it("has runes El to Ber in rune order", () => {
+  it("has runes El to Cham in rune order, Jah and Cham only in River of Flame", () => {
     const runes = CHEST_DROPS.filter((drop) => drop.category === "rune").map((drop) => drop.name);
     expect(runes[0]).toBe("El Rune");
-    expect(runes.at(-1)).toBe("Ber Rune");
+    expect(runes.at(-1)).toBe("Cham Rune");
     expect(isChestDrop("Zod Rune")).toBe(false);
+    const lkRunes = chestDropsFor("lowerKurast").filter((drop) => drop.category === "rune");
+    expect(lkRunes.at(-1)?.name).toBe("Ber Rune");
   });
 
   it("categorises common drops", () => {

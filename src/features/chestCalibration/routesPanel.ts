@@ -1,6 +1,7 @@
 import { renderCalibrateNextList } from "../../app/calibrateNextMenu";
 import { cleanRouteSamples, type PlayerProgress } from "../../app/progress";
-import { ROUTE_IDS, WAYPOINTS, averageDraw, isRouteId, routeAdds, routeName, type RouteId, type RouteSample } from "../../chest/waypoints";
+import { DEFAULT_AREA, chestArea, isChestArea } from "../../chest/areas";
+import { WAYPOINTS, averageDraw, isRouteId, routeAdds, routeName, type RouteId, type RouteSample } from "../../chest/waypoints";
 import { button, el, field } from "../../ui/dom";
 import { plural } from "../../ui/format";
 import presetCalibration from "../../data/lozzajpCalibration.json";
@@ -8,6 +9,15 @@ import presetCalibration from "../../data/lozzajpCalibration.json";
 const ACTS = [1, 2, 3, 4, 5] as const;
 
 export function renderRoutePicker(progress: PlayerProgress): HTMLElement {
+  const area = progress.area.name;
+  if (!progress.hasWaypointRoutes) {
+    return el(
+      "section",
+      { className: "panel" },
+      el("div", { className: "panel-head" }, el("h2", { textContent: "Route to measure" })),
+      el("p", { className: "lead", textContent: `Route: gamble window → ${area} → first super chest.` }),
+    );
+  }
   const select = el(
     "select",
     {},
@@ -43,7 +53,7 @@ export function renderRoutePicker(progress: PlayerProgress): HTMLElement {
     route.replaceChildren(
       "Route: gamble window → ",
       ...(picked === "direct" ? [] : [el("strong", { textContent: routeName(picked) }), " → "]),
-      "Lower Kurast → first super chest.",
+      `${area} → first super chest.`,
     );
   };
   progress.subscribe(render);
@@ -65,18 +75,19 @@ export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
   const render = () => {
     const samples = progress.routeSamples;
     const distance = progress.settings.distanceToFirstChest;
-    const routes = ROUTE_IDS.filter((route) => samples.some((sample) => sample.route === route));
+    const routes = progress.calibrationRoutes.filter((route) => samples.some((sample) => sample.route === route));
     const river = progress.riverStart;
     badge.textContent = river === null ? "Not ready to plan" : "Ready to plan";
     badge.classList.toggle("done", river !== null);
+    const lead = !progress.hasWaypointRoutes
+      ? river === null
+        ? "Rune plans need your Direct route."
+        : `Plans start at draw ${river}, your Direct distance, then your wait by the River of Flame waypoint.`
+      : river === null
+        ? "Rune plans need your Direct route, plus River of Flame to wait there, or other waypoints to hop through."
+        : `River of Flame plans start at draw ${river}: distance ${distance} plus ${progress.riverAdds} for River of Flame, then your wait there. Other measured waypoints add their own draws for waypoint routes.`;
     body.replaceChildren(
-      el("p", {
-        className: "lead",
-        textContent:
-          river === null
-            ? "Rune plans need your Direct route, plus River of Flame to wait there, or other waypoints to hop through."
-            : `River of Flame plans start at draw ${river}: distance ${distance} plus ${progress.riverAdds} for River of Flame, then your wait there. Other measured waypoints add their own draws for waypoint routes.`,
-      }),
+      el("p", { className: "lead", textContent: lead }),
       routes.length === 0
         ? el("p", { className: "muted", textContent: "Nothing measured yet." })
         : el("ol", { className: "draw-hits routes" }, ...routes.map((route) => routeRow(route))),
@@ -129,7 +140,7 @@ export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
     "section",
     { className: "panel" },
     el("div", { className: "panel-head" }, el("h2", { textContent: "Your routes" }), badge),
-    renderPresetToggle(progress),
+    progress.offersPresetCalibration && renderPresetToggle(progress),
     body,
     renderSampleTransfer(progress),
   );
@@ -173,10 +184,10 @@ function renderSampleTransfer(progress: PlayerProgress): HTMLElement {
   const exportButton = button(
     "Export samples",
     () => {
-      const json = JSON.stringify({ type: EXPORT_TYPE, version: 1, samples: progress.routeSamples }, null, 2);
+      const json = JSON.stringify({ type: EXPORT_TYPE, version: 1, area: progress.area.id, samples: progress.routeSamples }, null, 2);
       const link = el("a", {
         href: URL.createObjectURL(new Blob([json], { type: "application/json" })),
-        download: `d2scp-route-samples-${new Date().toISOString().slice(0, 10)}.json`,
+        download: `d2scp-${progress.area.short.toLowerCase()}-route-samples-${new Date().toISOString().slice(0, 10)}.json`,
       });
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
@@ -190,10 +201,18 @@ function renderSampleTransfer(progress: PlayerProgress): HTMLElement {
     file.value = "";
     if (!picked) return;
     let samples: RouteSample[] = [];
+    let area: unknown = DEFAULT_AREA;
     try {
       const data: unknown = JSON.parse(await picked.text());
-      samples = cleanRouteSamples(Array.isArray(data) ? data : (data as { samples?: unknown } | null)?.samples);
+      const file = Array.isArray(data) ? null : (data as { samples?: unknown; area?: unknown } | null);
+      samples = cleanRouteSamples(file ? file.samples : data);
+      area = file?.area ?? DEFAULT_AREA;
     } catch {
+    }
+    if (isChestArea(area) && area !== progress.area.id) {
+      status.textContent = `${picked.name} has ${chestArea(area).name} samples. Switch to ${chestArea(area).name} at the top to import them.`;
+      prompt.hidden = true;
+      return;
     }
     if (samples.length === 0) {
       status.textContent = `No route samples found in ${picked.name}.`;

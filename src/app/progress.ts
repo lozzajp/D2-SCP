@@ -1,5 +1,18 @@
 import { CHEST_SEED_COUNT, MAX_CHEST_DRAWS } from "../chest/chestStream";
-import { AVAILABLE_ROUTE_MODES, CHEST_RUNES, PLATFORM_FIRE_RATES, type RouteMode, type Rune } from "../chest/runePlan";
+import {
+  CHEST_AREAS,
+  DEFAULT_AREA,
+  DEFAULT_PLAYERS,
+  chestArea,
+  isChestArea,
+  isPlayerCount,
+  tableKey,
+  type ChestAreaId,
+  type ChestAreaInfo,
+  type PatternTable,
+  type PlayerCount,
+} from "../chest/areas";
+import { AVAILABLE_ROUTE_MODES, CHEST_RUNES, PLATFORM_FIRE_RATES, runesUpTo, type RouteMode, type Rune } from "../chest/runePlan";
 import {
   RIVER_OF_FLAME,
   ROUTE_IDS,
@@ -32,6 +45,8 @@ const CALIBRATE_ORDER: readonly RouteId[] = ["direct", RIVER_OF_FLAME, ...ROUTE_
 const STORAGE_KEY = "d2lkscp-progress";
 const GAME_TYPES = Object.keys(STORE_SEED_DRAWS) as GameType[];
 const CHEST_SLOTS: readonly ChestSlot[] = ["first", "refine"];
+const AREA_ROUTES: Record<ChestAreaId, readonly RouteId[]> = { lowerKurast: ROUTE_IDS, riverOfFlame: ["direct"] };
+const PRESET_AREA: ChestAreaId = "lowerKurast";
 const PRESET_SAMPLES: readonly RouteSample[] = cleanRouteSamples(
   Object.entries(presetCalibration.draws).map(([route, draw]) => ({ route, draw, gameSeed: null, preset: true })),
 );
@@ -70,17 +85,24 @@ export interface PickedPlan {
   stops: WaypointId[];
 }
 
+interface AreaSaved {
+  chests: Record<ChestSlot, ChestEntry>;
+  plan: PickedPlan | null;
+  distanceToFirstChest: number | null;
+  routeSamples: RouteSample[];
+  calibrationRoute: RouteId;
+  recalibrate: RouteId[];
+}
+
 interface Saved {
   seed: KnownSeed | null;
   seedHistory: PreviousSeed[];
   platform: PlatformId;
   charLevel: number;
-  chests: Record<ChestSlot, ChestEntry>;
-  plan: PickedPlan | null;
-  settings: GameSettings;
-  routeSamples: RouteSample[];
-  calibrationRoute: RouteId;
-  recalibrate: RouteId[];
+  fireRate: number | null;
+  area: ChestAreaId;
+  players: PlayerCount;
+  areas: Record<ChestAreaId, AreaSaved>;
   routeMode: RouteMode;
   minRune: Rune;
   advanced: boolean;
@@ -92,10 +114,67 @@ export class PlayerProgress {
   private readonly saved: Saved;
   private readonly storage: Pick<Storage, "getItem" | "setItem"> | undefined;
   private readonly listeners = new Set<() => void>();
+  private readonly tableListeners = new Set<() => void>();
 
   constructor(storage: Pick<Storage, "getItem" | "setItem"> | undefined = globalThis.localStorage) {
     this.storage = storage;
     this.saved = load(storage);
+  }
+
+  private get here(): AreaSaved {
+    return this.saved.areas[this.saved.area];
+  }
+
+  get area(): ChestAreaInfo {
+    return chestArea(this.saved.area);
+  }
+
+  get players(): PlayerCount {
+    const allowed: readonly PlayerCount[] = this.area.players;
+    return allowed.includes(this.saved.players) ? this.saved.players : allowed[0];
+  }
+
+  get chestTable(): PatternTable {
+    return { area: this.saved.area, players: this.players };
+  }
+
+  setArea(area: ChestAreaId): void {
+    if (area === this.saved.area) return;
+    this.changeTable(() => (this.saved.area = area));
+  }
+
+  setPlayers(players: PlayerCount): void {
+    if (players === this.saved.players || !this.area.players.includes(players)) return;
+    this.changeTable(() => {
+      this.saved.players = players;
+      for (const slot of CHEST_SLOTS) this.here.chests[slot] = { ...this.here.chests[slot], seed: null };
+      this.here.plan = null;
+    });
+  }
+
+  onTableChange(listener: () => void): void {
+    this.tableListeners.add(listener);
+  }
+
+  private changeTable(change: () => void): void {
+    const before = tableKey(this.chestTable);
+    change();
+    this.save();
+    if (tableKey(this.chestTable) === before) return;
+    this.listeners.clear();
+    for (const listener of this.tableListeners) listener();
+  }
+
+  get calibrationRoutes(): readonly RouteId[] {
+    return AREA_ROUTES[this.saved.area];
+  }
+
+  get hasWaypointRoutes(): boolean {
+    return this.calibrationRoutes.length > 1;
+  }
+
+  get chestRunes(): readonly Rune[] {
+    return runesUpTo(this.area.topRune);
   }
 
   get knownSeed(): KnownSeed | null {
@@ -109,16 +188,16 @@ export class PlayerProgress {
   setKnownSeed(seed: KnownSeed | null): void {
     const old = this.saved.seed;
     if (seed?.gameSeed !== old?.gameSeed || seed?.gameType !== old?.gameType) {
-      for (const slot of CHEST_SLOTS) {
-        this.saved.chests[slot] = { drops: [], exact: this.saved.chests[slot].exact, seed: null };
+      for (const area of Object.values(this.saved.areas)) {
+        for (const slot of CHEST_SLOTS) area.chests[slot] = { drops: [], exact: area.chests[slot].exact, seed: null };
+        area.plan = null;
       }
-      this.saved.plan = null;
     }
     this.saved.seed = seed;
     if (seed && !this.saved.seedHistory.some((past) => sameSeed(past, seed))) {
       this.saved.seedHistory = [{ ...seed, foundAt: Date.now() }, ...this.saved.seedHistory].slice(0, MAX_SEED_HISTORY);
     }
-    if (seed && this.saved.settings.fireRate === null) this.useFireRateOf(this.saved.platform);
+    if (seed && this.saved.fireRate === null) this.useFireRateOf(this.saved.platform);
     this.changed();
   }
 
@@ -133,7 +212,7 @@ export class PlayerProgress {
   }
 
   private useFireRateOf(platform: PlatformId): void {
-    this.saved.settings.fireRate = PLATFORM_FIRE_RATES[platform] ?? this.saved.settings.fireRate;
+    this.saved.fireRate = PLATFORM_FIRE_RATES[platform] ?? this.saved.fireRate;
   }
 
   get charLevel(): number {
@@ -148,7 +227,7 @@ export class PlayerProgress {
   }
 
   get settings(): GameSettings {
-    return { ...this.saved.settings };
+    return { distanceToFirstChest: this.here.distanceToFirstChest, fireRate: this.saved.fireRate };
   }
 
   get advanced(): boolean {
@@ -161,98 +240,111 @@ export class PlayerProgress {
   }
 
   updateSettings(changes: Partial<GameSettings>): void {
-    this.saved.settings = cleanSettings({ ...this.saved.settings, ...changes });
+    const settings = cleanSettings({ ...this.settings, ...changes });
+    this.here.distanceToFirstChest = settings.distanceToFirstChest;
+    this.saved.fireRate = settings.fireRate;
     this.changed();
   }
 
   get routeSamples(): readonly RouteSample[] {
-    return this.saved.routeSamples;
+    return this.here.routeSamples;
   }
 
   get calibrationRoute(): RouteId {
-    return this.saved.calibrationRoute;
+    return this.here.calibrationRoute;
   }
 
   setCalibrationRoute(route: RouteId): void {
-    this.saved.calibrationRoute = route;
+    if (!this.calibrationRoutes.includes(route)) return;
+    this.here.calibrationRoute = route;
     this.changed();
   }
 
   flagRecalibrate(routes: readonly RouteId[]): void {
-    const next = [...new Set(routes)].slice(0, MAX_RECALIBRATE);
-    if (next.length === this.saved.recalibrate.length && next.every((route, index) => route === this.saved.recalibrate[index])) return;
-    this.saved.recalibrate = next;
+    const next = [...new Set(routes)].filter((route) => this.calibrationRoutes.includes(route)).slice(0, MAX_RECALIBRATE);
+    const flagged = this.here.recalibrate;
+    if (next.length === flagged.length && next.every((route, index) => route === flagged[index])) return;
+    this.here.recalibrate = next;
     this.changed();
   }
 
   calibrateNext(limit = 5): CalibrateSuggestion[] {
     const runs = new Map<RouteId, number>();
-    for (const { route, preset } of this.saved.routeSamples) if (!preset) runs.set(route, (runs.get(route) ?? 0) + 1);
+    for (const { route, preset } of this.here.routeSamples) if (!preset) runs.set(route, (runs.get(route) ?? 0) + 1);
     const runsOf = (route: RouteId) => runs.get(route) ?? 0;
-    const fresh = CALIBRATE_ORDER.filter((route) => runsOf(route) === 0);
-    const fewest = CALIBRATE_ORDER.filter((route) => runsOf(route) > 0).sort((a, b) => runsOf(a) - runsOf(b));
-    return [...new Set([...fresh, ...this.saved.recalibrate, ...fewest])]
+    const order = CALIBRATE_ORDER.filter((route) => this.calibrationRoutes.includes(route));
+    const fresh = order.filter((route) => runsOf(route) === 0);
+    const fewest = order.filter((route) => runsOf(route) > 0).sort((a, b) => runsOf(a) - runsOf(b));
+    const flagged = this.here.recalibrate;
+    return [...new Set([...fresh, ...flagged, ...fewest])]
       .slice(0, limit)
-      .map((route) => ({ route, runs: runsOf(route), flagged: this.saved.recalibrate.includes(route) }));
+      .map((route) => ({ route, runs: runsOf(route), flagged: flagged.includes(route) }));
   }
 
   addRouteSample(route: RouteId, draw: number): void {
-    if (!Number.isInteger(draw) || draw < 1 || draw > MAX_CHEST_DRAWS) return;
+    if (!Number.isInteger(draw) || draw < 1 || draw > MAX_CHEST_DRAWS || !this.calibrationRoutes.includes(route)) return;
     const gameSeed = this.saved.seed?.gameSeed ?? null;
-    const kept = this.saved.routeSamples.filter((sample) => gameSeed === null || sample.gameSeed !== gameSeed);
-    this.saved.routeSamples = [...kept, { route, draw, gameSeed }];
-    this.saved.recalibrate = this.saved.recalibrate.filter((flagged) => flagged !== route);
+    const kept = this.here.routeSamples.filter((sample) => gameSeed === null || sample.gameSeed !== gameSeed);
+    this.here.routeSamples = [...kept, { route, draw, gameSeed }];
+    this.here.recalibrate = this.here.recalibrate.filter((flagged) => flagged !== route);
     this.useDirectAverage();
     this.changed();
   }
 
   removeRouteSample(sample: RouteSample): void {
-    this.saved.routeSamples = this.saved.routeSamples.filter((kept) => kept !== sample);
+    this.here.routeSamples = this.here.routeSamples.filter((kept) => kept !== sample);
     this.useDirectAverage();
     this.changed();
   }
 
   clearRoute(route: RouteId): void {
-    this.saved.routeSamples = this.saved.routeSamples.filter((kept) => kept.route !== route);
+    this.here.routeSamples = this.here.routeSamples.filter((kept) => kept.route !== route);
     this.useDirectAverage();
     this.changed();
   }
 
   importRouteSamples(samples: readonly RouteSample[], replace: boolean): void {
-    let next = replace ? [] : [...this.saved.routeSamples];
+    let next = replace ? [] : [...this.here.routeSamples];
     for (const sample of samples) {
       const { route, draw, gameSeed, preset } = sample;
+      if (!this.calibrationRoutes.includes(route) || (preset && !this.offersPresetCalibration)) continue;
       if (next.some((kept) => kept.route === route && kept.draw === draw && kept.gameSeed === gameSeed && kept.preset === preset)) continue;
       if (gameSeed !== null) next = next.filter((kept) => kept.gameSeed !== gameSeed);
       next.push(preset ? { route, draw, gameSeed, preset } : { route, draw, gameSeed });
     }
-    this.saved.routeSamples = next;
+    this.here.routeSamples = next;
     this.useDirectAverage();
     this.changed();
   }
 
+  get offersPresetCalibration(): boolean {
+    return this.saved.area === PRESET_AREA;
+  }
+
   get usingPresetCalibration(): boolean {
-    return this.saved.routeSamples.some((sample) => sample.preset);
+    return this.here.routeSamples.some((sample) => sample.preset);
   }
 
   setPresetCalibration(on: boolean): void {
-    const own = this.saved.routeSamples.filter((sample) => !sample.preset);
-    this.saved.routeSamples = on ? [...own, ...PRESET_SAMPLES] : own;
+    if (on && !this.offersPresetCalibration) return;
+    const own = this.here.routeSamples.filter((sample) => !sample.preset);
+    this.here.routeSamples = on ? [...own, ...PRESET_SAMPLES] : own;
     this.useDirectAverage();
     this.changed();
   }
 
   private useDirectAverage(): void {
-    const direct = averageDraw(this.saved.routeSamples, "direct");
-    if (direct !== null) this.saved.settings.distanceToFirstChest = Math.round(direct);
+    const direct = averageDraw(this.here.routeSamples, "direct");
+    if (direct !== null) this.here.distanceToFirstChest = Math.round(direct);
   }
 
   get riverAdds(): number | null {
-    return routeAdds(this.saved.routeSamples, RIVER_OF_FLAME, this.saved.settings.distanceToFirstChest);
+    if (this.saved.area === "riverOfFlame") return 0;
+    return routeAdds(this.here.routeSamples, RIVER_OF_FLAME, this.here.distanceToFirstChest);
   }
 
   get riverStart(): number | null {
-    const distance = this.saved.settings.distanceToFirstChest;
+    const distance = this.here.distanceToFirstChest;
     const adds = this.riverAdds;
     return distance === null || adds === null ? null : distance + adds;
   }
@@ -260,14 +352,15 @@ export class PlayerProgress {
   get waypointAdds(): Map<WaypointId, number> {
     const adds = new Map<WaypointId, number>();
     for (const { id } of WAYPOINTS) {
-      const value = routeAdds(this.saved.routeSamples, id, this.saved.settings.distanceToFirstChest);
+      if (!this.calibrationRoutes.includes(id)) continue;
+      const value = routeAdds(this.here.routeSamples, id, this.here.distanceToFirstChest);
       if (value !== null) adds.set(id, value);
     }
     return adds;
   }
 
   get routeMode(): RouteMode {
-    return this.saved.routeMode;
+    return this.hasWaypointRoutes ? this.saved.routeMode : "wait";
   }
 
   setRouteMode(mode: RouteMode): void {
@@ -277,29 +370,30 @@ export class PlayerProgress {
   }
 
   chest(slot: ChestSlot): ChestEntry {
-    return this.saved.chests[slot];
+    return this.here.chests[slot];
   }
 
   updateChest(slot: ChestSlot, changes: Partial<ChestEntry>): void {
-    const chest = { ...this.saved.chests[slot] };
+    const chest = { ...this.here.chests[slot] };
     if (changes.drops !== undefined) chest.drops = cleanDrops(changes.drops);
     if (changes.exact !== undefined) chest.exact = changes.exact;
     if (changes.seed !== undefined) chest.seed = cleanChestSeed(changes.seed);
-    this.saved.chests[slot] = chest;
+    this.here.chests[slot] = chest;
     this.changed();
   }
 
   get plan(): PickedPlan | null {
-    return this.saved.plan;
+    return this.here.plan;
   }
 
   setPlan(plan: PickedPlan | null): void {
-    this.saved.plan = cleanPlan(plan);
+    this.here.plan = cleanPlan(plan);
     this.changed();
   }
 
   get minRune(): Rune {
-    return this.saved.minRune;
+    const runes = this.chestRunes;
+    return runes.includes(this.saved.minRune) ? this.saved.minRune : runes.at(-1)!;
   }
 
   setMinRune(rune: Rune): void {
@@ -312,41 +406,80 @@ export class PlayerProgress {
   }
 
   private changed(): void {
+    this.save();
+    for (const listener of this.listeners) listener();
+  }
+
+  private save(): void {
     try {
       this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.saved));
     } catch {
     }
-    for (const listener of this.listeners) listener();
   }
 }
 
+type LegacySaved = Partial<Saved> &
+  Partial<Omit<AreaSaved, "distanceToFirstChest">> & {
+    settings?: unknown;
+    firstChestDrops?: unknown;
+    firstChestExact?: unknown;
+    firstChestSeed?: unknown;
+  };
+
 function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
-  let data: Partial<Saved> & { firstChestDrops?: unknown; firstChestExact?: unknown; firstChestSeed?: unknown } = {};
+  let data: LegacySaved = {};
   try {
     data = JSON.parse(storage?.getItem(STORAGE_KEY) ?? "{}") ?? {};
   } catch {
   }
-  const first = data.chests?.first ?? { drops: data.firstChestDrops, exact: data.firstChestExact, seed: data.firstChestSeed };
-  const settings = cleanSettings(data.settings);
-  let routeSamples = cleanRouteSamples(data.routeSamples);
-  if (data.routeSamples === undefined && settings.distanceToFirstChest !== null) {
-    routeSamples = [{ route: RIVER_OF_FLAME, draw: settings.distanceToFirstChest, gameSeed: null }];
-    settings.distanceToFirstChest = null;
-  }
+  const savedAreas = (data.areas ?? null) as Partial<Record<ChestAreaId, unknown>> | null;
+  const areas = Object.fromEntries(
+    CHEST_AREAS.map(({ id }) => [id, savedAreas ? cleanArea(savedAreas[id], id) : id === DEFAULT_AREA ? legacyArea(data) : cleanArea(null, id)]),
+  ) as Record<ChestAreaId, AreaSaved>;
+  const fireRate = savedAreas ? cleanSettings({ fireRate: data.fireRate }).fireRate : cleanSettings(data.settings).fireRate;
   return {
     seed: cleanSeed(data.seed),
     seedHistory: cleanSeedHistory(data.seedHistory),
     platform: PLATFORMS.some((platform) => platform.id === data.platform) ? data.platform! : "pc",
     charLevel: cleanCharLevel(data.charLevel) ?? loadState(storage).setup.charLevel,
-    chests: { first: cleanChest(first), refine: cleanChest(data.chests?.refine) },
-    plan: cleanPlan(data.plan),
-    settings,
-    routeSamples,
-    calibrationRoute: isRouteId(data.calibrationRoute) ? data.calibrationRoute : "direct",
-    recalibrate: Array.isArray(data.recalibrate) ? [...new Set(data.recalibrate.filter(isRouteId))].slice(0, MAX_RECALIBRATE) : [],
+    fireRate,
+    area: isChestArea(data.area) ? data.area : DEFAULT_AREA,
+    players: isPlayerCount(data.players) ? data.players : DEFAULT_PLAYERS,
+    areas,
     routeMode: AVAILABLE_ROUTE_MODES.includes(data.routeMode as RouteMode) ? data.routeMode! : "wait",
     minRune: CHEST_RUNES.includes(data.minRune as Rune) ? data.minRune! : DEFAULT_MIN_RUNE,
     advanced: data.advanced === true,
+  };
+}
+
+function legacyArea(data: LegacySaved): AreaSaved {
+  const first = data.chests?.first ?? { drops: data.firstChestDrops, exact: data.firstChestExact, seed: data.firstChestSeed };
+  const settings = cleanSettings(data.settings);
+  let routeSamples = data.routeSamples;
+  if (routeSamples === undefined && settings.distanceToFirstChest !== null) {
+    routeSamples = [{ route: RIVER_OF_FLAME, draw: settings.distanceToFirstChest, gameSeed: null }];
+    settings.distanceToFirstChest = null;
+  }
+  return cleanArea(
+    { ...data, chests: { first, refine: data.chests?.refine }, distanceToFirstChest: settings.distanceToFirstChest, routeSamples },
+    DEFAULT_AREA,
+  );
+}
+
+function cleanArea(area: unknown, id: ChestAreaId): AreaSaved {
+  const data = (area ?? {}) as Partial<Record<keyof AreaSaved, unknown>>;
+  const routes = AREA_ROUTES[id];
+  const allowed = (route: unknown): route is RouteId => isRouteId(route) && routes.includes(route);
+  const chests = (data.chests ?? {}) as Partial<Record<ChestSlot, unknown>>;
+  return {
+    chests: { first: cleanChest(chests.first), refine: cleanChest(chests.refine) },
+    plan: cleanPlan(data.plan),
+    distanceToFirstChest: cleanSettings({ distanceToFirstChest: data.distanceToFirstChest }).distanceToFirstChest,
+    routeSamples: cleanRouteSamples(data.routeSamples).filter(
+      (sample) => allowed(sample.route) && (!sample.preset || id === PRESET_AREA),
+    ),
+    calibrationRoute: allowed(data.calibrationRoute) ? data.calibrationRoute : "direct",
+    recalibrate: Array.isArray(data.recalibrate) ? [...new Set(data.recalibrate.filter(allowed))].slice(0, MAX_RECALIBRATE) : [],
   };
 }
 

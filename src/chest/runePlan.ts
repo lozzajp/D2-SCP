@@ -9,7 +9,12 @@ export const RUNES = [
   "Ko", "Fal", "Lem", "Pul", "Um", "Mal", "Ist", "Gul", "Vex", "Ohm", "Lo", "Sur", "Ber", "Jah", "Cham", "Zod",
 ] as const;
 export type Rune = (typeof RUNES)[number];
-export const CHEST_RUNES: readonly Rune[] = RUNES.slice(0, RUNES.indexOf("Ber") + 1);
+export const CHEST_RUNES: readonly Rune[] = RUNES.slice(0, RUNES.indexOf("Cham") + 1);
+export const LONG_WAIT_RUNE: Rune = "Ber";
+
+export function runesUpTo(top: Rune): readonly Rune[] {
+  return CHEST_RUNES.slice(0, CHEST_RUNES.indexOf(top) + 1);
+}
 
 export const MAX_WAIT_SECONDS = 600;
 export const MAX_BER_WAIT_SECONDS = 1500;
@@ -69,6 +74,10 @@ export function isLongWait(target: RuneTarget): boolean {
   return target.wait > MAX_WAIT_SECONDS;
 }
 
+export function allowsLongWait(rune: Rune): boolean {
+  return RANK.get(rune)! >= RANK.get(LONG_WAIT_RUNE)!;
+}
+
 export function chestRunes(patterns: ChestPatterns, seed: number): ChestRunes {
   const { unlockedCycles, cycles } = patterns.pattern(seed);
   return { always: runesIn(cycles.slice(0, unlockedCycles)), ifLocked: runesIn(cycles.slice(unlockedCycles)) };
@@ -100,7 +109,7 @@ export function planRunes(patterns: ChestPatterns, options: RunePlanOptions): Ru
     if (!wanted) continue;
     const target = route(draw, seed, wanted);
     if (target.wait <= MAX_WAIT_SECONDS) targets.push(target);
-    else if (target.wait <= MAX_BER_WAIT_SECONDS && qualify(runes, "Ber")) targets.push(route(draw, seed, qualify(runes, "Ber")!));
+    else if (target.wait <= MAX_BER_WAIT_SECONDS && qualify(runes, LONG_WAIT_RUNE)) targets.push(route(draw, seed, qualify(runes, LONG_WAIT_RUNE)!));
   }
   const early: RuneTarget[] = [];
   if (options.includeEarly) {

@@ -1,5 +1,5 @@
 import type { ChestPatterns } from "./patterns";
-import { MAX_BER_WAIT_SECONDS, MAX_WAIT_SECONDS, RUNES, chestRunes, type Rune } from "./runePlan";
+import { MAX_BER_WAIT_SECONDS, MAX_WAIT_SECONDS, RUNES, allowsLongWait, chestRunes, type Rune } from "./runePlan";
 
 export const REROLL_SECONDS = 60;
 
@@ -27,7 +27,7 @@ export function runeChances(patterns: ChestPatterns): Map<Rune, number> {
 export function rerollSeconds(chance: number, fireRate: number, rune: Rune, rerollSeconds = REROLL_SECONDS): number {
   const perSecond = chance * fireRate;
   if (perSecond <= 0) return Infinity;
-  const longest = rune === "Ber" ? MAX_BER_WAIT_SECONDS : MAX_WAIT_SECONDS;
+  const longest = allowsLongWait(rune) ? MAX_BER_WAIT_SECONDS : MAX_WAIT_SECONDS;
   const expected = (limit: number) => {
     const miss = Math.exp(-perSecond * limit);
     const hit = 1 - miss;

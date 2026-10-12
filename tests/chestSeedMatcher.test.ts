@@ -1,8 +1,15 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import patternsData from "../src/data/lk_hell_p7.bin?inline";
+import lkP1 from "../src/data/lk_hell_p1.bin?inline";
+import lkP3 from "../src/data/lk_hell_p3.bin?inline";
+import lkP5 from "../src/data/lk_hell_p5.bin?inline";
+import rofP1 from "../src/data/rof_hell_p1.bin?inline";
+import rofP3 from "../src/data/rof_hell_p3.bin?inline";
+import rofP5 from "../src/data/rof_hell_p5.bin?inline";
+import rofP7 from "../src/data/rof_hell_p7.bin?inline";
 import { chestDrop, findChestSeeds } from "../src/chest/chestSeedMatcher";
 import { ChestPatterns, encodeChestPatterns, type SeedPattern } from "../src/chest/patterns";
-import { CHEST_DROPS } from "../src/data/chestDrops";
+import { chestDropsFor } from "../src/data/chestDrops";
 
 let patterns: ChestPatterns;
 beforeAll(async () => {
@@ -21,11 +28,19 @@ describe("chest pattern file", () => {
     expect(decoded.pattern(2)).toEqual(input[1]);
   });
 
-  it("covers every chest seed with known drop names", () => {
-    expect(patterns.seedCount).toBe(65534);
-    const known = new Set(CHEST_DROPS.map((drop) => drop.name));
-    expect(patterns.names.filter((name) => !known.has(name))).toEqual([]);
-    expect(patterns.names).toHaveLength(CHEST_DROPS.length);
+  it("covers every chest seed of every table with its area's drop names", async () => {
+    const tables = { lowerKurast: [lkP1, lkP3, lkP5, patternsData], riverOfFlame: [rofP1, rofP3, rofP5, rofP7] } as const;
+    for (const [area, urls] of Object.entries(tables) as [keyof typeof tables, readonly string[]][]) {
+      const known = new Set(chestDropsFor(area).map((drop) => drop.name));
+      const seen = new Set<string>();
+      for (const data of urls) {
+        const table = new ChestPatterns(new Uint8Array(await (await fetch(data)).arrayBuffer()));
+        expect(table.seedCount).toBe(65534);
+        expect(table.names.filter((name) => !known.has(name))).toEqual([]);
+        for (const name of table.names) seen.add(name);
+      }
+      expect(seen.size).toBe(known.size);
+    }
   });
 
   it("holds the known Ber seed", () => {

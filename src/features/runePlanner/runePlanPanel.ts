@@ -6,7 +6,9 @@ import {
   AVAILABLE_ROUTE_MODES,
   CHEST_RUNES,
   FIRE_RATE_NOTE,
+  allowsLongWait,
   isLongWait,
+  LONG_WAIT_RUNE,
   MAX_BER_WAIT_SECONDS,
   MAX_REPEAT_DRAW,
   MAX_WAIT_SECONDS,
@@ -42,11 +44,12 @@ export function renderRunePlanPanel(progress: PlayerProgress, { showEarly = fals
   const riverAdds = el("span", { className: "hint" });
   const modeTabs = el("div", {});
   const modeHint = el("p", { className: "hint" });
-  const minRune = el("select", {}, ...CHEST_RUNES.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
+  const minRune = el("select", {}, ...progress.chestRunes.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
   minRune.addEventListener("change", () => {
-    const rune = CHEST_RUNES.find((chestRune) => chestRune === minRune.value);
+    const rune = progress.chestRunes.find((chestRune) => chestRune === minRune.value);
     if (rune) progress.setMinRune(rune);
   });
+  const waypoints = progress.hasWaypointRoutes;
 
   function render(): void {
     const settings = progress.settings;
@@ -54,8 +57,11 @@ export function renderRunePlanPanel(progress: PlayerProgress, { showEarly = fals
     if (document.activeElement !== fireRate) fireRate.value = settings.fireRate?.toString() ?? "";
     minRune.value = progress.minRune;
     const adds = progress.riverAdds;
-    riverAdds.textContent =
-      adds === null ? "River of Flame not measured yet" : `+ ${adds} for River of Flame = draw ${progress.riverStart ?? "—"}`;
+    riverAdds.textContent = !waypoints
+      ? "Your Direct draw, then wait by the River of Flame waypoint"
+      : adds === null
+        ? "River of Flame not measured yet"
+        : `+ ${adds} for River of Flame = draw ${progress.riverStart ?? "—"}`;
     const mode = progress.routeMode;
     modeTabs.replaceChildren(
       choiceTabs(
@@ -64,7 +70,7 @@ export function renderRunePlanPanel(progress: PlayerProgress, { showEarly = fals
         (picked) => progress.setRouteMode(picked),
       ),
     );
-    modeHint.textContent = MODE_HINTS[mode];
+    modeHint.textContent = waypoints ? MODE_HINTS[mode] : "Go to River of Flame, wait by the waypoint, then walk to the chest.";
     count.textContent = "";
     count.hidden = true;
     results.replaceChildren();
@@ -138,7 +144,7 @@ export function renderRunePlanPanel(progress: PlayerProgress, { showEarly = fals
 
   progress.subscribe(render);
   render();
-  loadChestPatterns().then(
+  loadChestPatterns(progress.chestTable).then(
     (loaded) => {
       patterns = loaded;
       render();
@@ -156,11 +162,11 @@ export function renderRunePlanPanel(progress: PlayerProgress, { showEarly = fals
     field("Distance to first chest", distance, riverAdds),
     field("Fire rate", el("span", { className: "with-unit" }, fireRate, "×/s"), el("span", { className: "hint", textContent: `(${FIRE_RATE_NOTE})` })),
     field("Keep runes", minRune),
-    field("Route", modeTabs),
+    waypoints && field("Route", modeTabs),
     modeHint,
     el("p", {
       className: "hint",
-      textContent: `Waits stop at ${MAX_WAIT_SECONDS}s (${MAX_WAIT_SECONDS / 60} minutes), or ${MAX_BER_WAIT_SECONDS / 60} minutes for a Ber since it's so rare. If your rune needs longer than that, you're better off rerolling the game and seed.`,
+      textContent: `Waits stop at ${MAX_WAIT_SECONDS}s (${MAX_WAIT_SECONDS / 60} minutes), or ${MAX_BER_WAIT_SECONDS / 60} minutes for ${LONG_WAIT_RUNE} or better since they're so rare. If your rune needs longer than that, you're better off rerolling the game and seed.`,
     }),
     el("p", {
       className: "hint",
@@ -231,7 +237,7 @@ export function renderSeedPlans(progress: PlayerProgress, seeds: readonly KnownS
     );
   };
   const timerBox = el("div", { className: "panel", hidden: true }, renderWaitTimer(progress));
-  loadChestPatterns().then(render, (error: unknown) => {
+  loadChestPatterns(progress.chestTable).then(render, (error: unknown) => {
     root.replaceChildren(
       el("p", { className: "lead error", textContent: error instanceof Error ? error.message : "Couldn't load chest patterns." }),
     );
@@ -240,48 +246,87 @@ export function renderSeedPlans(progress: PlayerProgress, seeds: readonly KnownS
 }
 
 export function renderRunePreview(progress: PlayerProgress, seed: KnownSeed, suggestCalibration = true): HTMLElement {
-  const root = el("p", { className: "muted", textContent: "Checking runes…" });
+  const current = el("p", { className: "muted", textContent: "Checking runes…" });
+  const others = el("p", { className: "hint", hidden: true });
+  const root = el("div", { className: "rune-preview" }, current, others);
   const routing = routeOptions(progress);
   if (!("distance" in routing)) {
-    root.replaceChildren("To see the runes you can plan for: ", ...routing);
+    current.replaceChildren("To see the runes you can plan for: ", ...routing);
     return root;
   }
   const options = routing;
   const minRune = progress.minRune;
-  loadChestPatterns().then(
+  const mode = progress.routeMode;
+  const targetsFor = (patterns: ChestPatterns) => planRunes(patterns, { ...seed, ...options, minRune }).targets;
+  loadChestPatterns(progress.chestTable).then(
     (patterns) => {
-      const { targets } = planRunes(patterns, { ...seed, ...options, minRune });
+      const targets = targetsFor(patterns);
       if (targets.length === 0) {
-        const none = noTargetsText(minRune, progress.routeMode);
-        root.replaceChildren(
+        const none = noTargetsText(minRune, mode);
+        current.replaceChildren(
           ...(suggestCalibration
             ? [`${none} This is a good opportunity to `, el("a", { href: "#/calibrate", textContent: "calibrate another route" }), "."]
             : [none]),
         );
-        return;
+      } else {
+        current.className = "lead";
+        current.replaceChildren(`Runes you can plan for (${minRune}+): `, ...runeSummary(targets, mode), ".");
       }
-      const byRune = new Map<Rune, RuneTarget[]>();
-      for (const target of targets) byRune.set(target.rune, [...(byRune.get(target.rune) ?? []), target]);
-      const runes = [...byRune.keys()].sort((a, b) => CHEST_RUNES.indexOf(b) - CHEST_RUNES.indexOf(a));
-      root.className = "lead";
-      root.replaceChildren(
-        `Runes you can plan for (${minRune}+): `,
-        ...runes.flatMap((rune, index) => {
-          const found = byRune.get(rune)!;
-          const soonest = Math.min(...found.map((target) => target.wait));
-          const count = found.length > 1 ? ` ×${found.length}` : "";
-          const noWaits = progress.routeMode === "waypoints" || progress.routeMode === "repeats";
-          const wait = noWaits ? "" : ` (from ${formatDuration(soonest)})`;
-          return [index > 0 ? ", " : "", el("strong", { textContent: rune }), `${count}${wait}`];
-        }),
-        ".",
-      );
+      renderOtherPlayers(progress, others, targetsFor, mode);
     },
     () => {
-      root.textContent = "Couldn't load chest patterns to check runes.";
+      current.textContent = "Couldn't load chest patterns to check runes.";
     },
   );
   return root;
+}
+
+function renderOtherPlayers(
+  progress: PlayerProgress,
+  root: HTMLElement,
+  targetsFor: (patterns: ChestPatterns) => RuneTarget[],
+  mode: RouteMode,
+): void {
+  const area = progress.area.id;
+  const counts = progress.area.players.filter((players) => players !== progress.players);
+  if (counts.length === 0) return;
+  Promise.all(counts.map((players) => loadChestPatterns({ area, players }))).then(
+    (tables) => {
+      const found = counts
+        .map((players, index) => ({ players, targets: targetsFor(tables[index]) }))
+        .filter(({ targets }) => targets.length > 0);
+      root.hidden = false;
+      if (found.length === 0) {
+        root.textContent = `Other player counts (${counts.map((players) => `/players ${players}`).join(", ")}) have no ${progress.minRune}+ in reach either.`;
+        return;
+      }
+      root.replaceChildren(
+        "Other player counts change what the chests drop: ",
+        ...found.flatMap(({ players, targets }, index) => [
+          index > 0 ? "; " : "",
+          button(`/players ${players}`, () => progress.setPlayers(players), "small"),
+          " ",
+          ...runeSummary(targets, mode),
+        ]),
+        ". Pick one to switch, then type it in game before opening the chest.",
+      );
+    },
+    () => {},
+  );
+}
+
+function runeSummary(targets: readonly RuneTarget[], mode: RouteMode): (Node | string)[] {
+  const byRune = new Map<Rune, RuneTarget[]>();
+  for (const target of targets) byRune.set(target.rune, [...(byRune.get(target.rune) ?? []), target]);
+  const runes = [...byRune.keys()].sort((a, b) => CHEST_RUNES.indexOf(b) - CHEST_RUNES.indexOf(a));
+  const noWaits = mode === "waypoints" || mode === "repeats";
+  return runes.flatMap((rune, index) => {
+    const found = byRune.get(rune)!;
+    const soonest = Math.min(...found.map((target) => target.wait));
+    const count = found.length > 1 ? ` ×${found.length}` : "";
+    const wait = noWaits ? "" : ` (from ${formatDuration(soonest)})`;
+    return [index > 0 ? ", " : "", el("strong", { textContent: rune }), `${count}${wait}`];
+  });
 }
 
 function numberInput(
@@ -299,9 +344,8 @@ function numberInput(
 function noTargetsText(minRune: Rune, mode: RouteMode): string {
   if (mode === "waypoints") return `No ${minRune} or better within ${WAYPOINT_TOLERANCE} draws of a waypoint route.`;
   if (mode === "repeats") return `No ${minRune} or better up to draw ${MAX_REPEAT_DRAW.toLocaleString("en-US")}.`;
-  return minRune === "Ber"
-    ? `No Ber within ${MAX_BER_WAIT_SECONDS}s.`
-    : `No ${minRune} or better within ${MAX_WAIT_SECONDS}s, or Ber within ${MAX_BER_WAIT_SECONDS}s.`;
+  if (allowsLongWait(minRune)) return `No ${minRune}${minRune === CHEST_RUNES.at(-1) ? "" : " or better"} within ${MAX_BER_WAIT_SECONDS}s.`;
+  return `No ${minRune} or better within ${MAX_WAIT_SECONDS}s, or ${LONG_WAIT_RUNE} or better within ${MAX_BER_WAIT_SECONDS}s.`;
 }
 
 const MODE_TABS: readonly { id: RouteMode; label: string }[] = [
@@ -430,9 +474,9 @@ function targetRow(
     { className: long ? "long-wait" : "" },
     el("strong", { textContent: label }),
     rune,
-    long && el("span", { className: "long-wait-tag", textContent: `Long Ber wait, past the usual ${MAX_WAIT_SECONDS / 60} minutes` }),
+    long && el("span", { className: "long-wait-tag", textContent: `Long ${target.rune} wait, past the usual ${MAX_WAIT_SECONDS / 60} minutes` }),
     verdict,
-    target.needsLock && el("span", { className: "muted", textContent: "locked chest only" }),
+    target.needsLock && el("span", { className: "badge locked-badge", textContent: "Locked Chest (21% Spawn Chance)" }),
     routeTag(target),
     el("span", { className: "muted" }, `Draw ${target.draw}, chest seed `, el("code", { textContent: String(target.seed) })),
     others.length > 0 && el("span", { className: "muted", textContent: `Also ${others.join(", ")}` }),

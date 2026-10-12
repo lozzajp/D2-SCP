@@ -8,6 +8,7 @@ Scroll of Town Portal,misc
 Antidote Potion,potion
 Choking Gas Potion,potion
 Exploding Potion,potion
+Fulminating Potion,potion
 Greater Healing Potion,potion
 Greater Mana Potion,potion
 Healing Potion,potion
@@ -82,6 +83,8 @@ Ohm Rune,rune
 Lo Rune,rune
 Sur Rune,rune
 Ber Rune,rune
+Jah Rune,rune
+Cham Rune,rune
 Amulet,jewelry
 Grand Charm,jewelry
 Jewel,jewelry
@@ -128,6 +131,7 @@ Ceremonial Javelin,weapon
 Ceremonial Pike,weapon
 Ceremonial Spear,weapon
 Cestus,weapon
+Champion Sword,weapon
 Chu-Ko-Nu,weapon
 Cinquedeas,weapon
 Clasped Orb,weapon
@@ -139,8 +143,10 @@ Club,weapon
 Colossus Crossbow,weapon
 Colossus Voulge,weapon
 Composite Bow,weapon
+Conquest Sword,weapon
 Crossbow,weapon
 Crowbill,weapon
+Crusader Bow,weapon
 Crystal Sword,weapon
 Crystalline Globe,weapon
 Cudgel,weapon
@@ -168,6 +174,7 @@ Falcata,weapon
 Falchion,weapon
 Fascia,weapon
 Feral Axe,weapon
+Feral Claws,weapon
 Flail,weapon
 Flamberge,weapon
 Flanged Mace,weapon
@@ -187,6 +194,7 @@ Gothic Axe,weapon
 Gothic Bow,weapon
 Gothic Staff,weapon
 Gothic Sword,weapon
+Grand Matron Bow,weapon
 Grand Scepter,weapon
 Grave Wand,weapon
 Great Axe,weapon
@@ -276,7 +284,9 @@ Scepter,weapon
 Scimitar,weapon
 Scissors Katar,weapon
 Scissors Quhab,weapon
+Scourge,weapon
 Scythe,weapon
+Seraph Rod,weapon
 Shadow Bow,weapon
 Shamshir,weapon
 Short Battle Bow,weapon
@@ -333,6 +343,7 @@ War Scythe,weapon
 War Spear,weapon
 War Staff,weapon
 War Sword,weapon
+Winged Knife,weapon
 Wrist Blade,weapon
 Wrist Spike,weapon
 Wrist Sword,weapon
@@ -349,6 +360,7 @@ Antlers,armor
 Armet,armor
 Assault Helmet,armor
 Avenger Guard,armor
+Balrog Skin,armor
 Barbed Shield,armor
 Basinet,armor
 Battle Belt,armor
@@ -380,6 +392,7 @@ Compendium,armor
 Coronet,armor
 Crown,armor
 Crown Shield,armor
+Crusader Gauntlets,armor
 Cuirass,armor
 Dark Codex,armor
 Dark Tome,armor
@@ -395,6 +408,7 @@ Destroyer Helm,armor
 Diamond Mail,armor
 Dragon Shield,armor
 Dusk Shroud,armor
+Earth Spirit,armor
 Embossed Plate,armor
 Falcon Mask,armor
 Fanged Helm,armor
@@ -427,6 +441,7 @@ Heavy Boots,armor
 Heavy Bracers,armor
 Heavy Gloves,armor
 Heirophant Trophy,armor
+Hellforge Plate,armor
 Hellspawn Skull,armor
 Helm,armor
 Heraldic Shield,armor
@@ -510,6 +525,7 @@ Tome,armor
 Totemic Mask,armor
 Tower Shield,armor
 Trellised Armor,armor
+Troll Nest,armor
 Unraveller Head,armor
 Vambraces,armor
 Vampirebone Gloves,armor

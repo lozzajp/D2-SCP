@@ -1,9 +1,15 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { encodeChestPatterns, type SeedPattern } from "../src/chest/patterns.ts";
 
-const [lockedPath = "../superchest_area79_hell_p7_locked.csv", unlockedPath = "../superchest_area79_hell_p7_unlocked.csv"] =
-  process.argv.slice(2);
-const outPath = new URL("../src/data/lk_hell_p7.bin", import.meta.url);
+const AREAS = [
+  { area: 79, out: "lk" },
+  { area: 107, out: "rof" },
+];
+const PLAYERS = [1, 3, 5, 7];
+const TABLES = AREAS.flatMap(({ area, out }) =>
+  PLAYERS.map((players) => ({ source: `superchest_area${area}_hell_p${players}`, out: `${out}_hell_p${players}` })),
+);
+const [sourceDir = ".."] = process.argv.slice(2);
 
 function readCycles(path: string): string[][][] {
   const lines = readFileSync(path, "utf8").split(/\r?\n/).filter(Boolean).slice(1);
@@ -16,17 +22,19 @@ function readCycles(path: string): string[][][] {
   });
 }
 
-const locked = readCycles(lockedPath);
-const unlocked = readCycles(unlockedPath);
-if (locked.length !== 65534 || unlocked.length !== 65534) throw new Error("Expected 65534 seeds in each file.");
+for (const { source, out } of TABLES) {
+  const locked = readCycles(`${sourceDir}/${source}_locked.csv`);
+  const unlocked = readCycles(`${sourceDir}/${source}_unlocked.csv`);
+  if (locked.length !== 65534 || unlocked.length !== 65534) throw new Error(`${source}: expected 65534 seeds in each file.`);
 
-const patterns: SeedPattern[] = locked.map((cycles, s) => {
-  const open = unlocked[s];
-  const prefix = open.length <= cycles.length && open.every((cycle, c) => cycle.join() === cycles[c].join());
-  if (!prefix || cycles.length - open.length > 1) throw new Error(`Seed ${s + 1}: unlocked drop is not the locked drop minus one cycle.`);
-  return { unlockedCycles: open.length, cycles };
-});
+  const patterns: SeedPattern[] = locked.map((cycles, s) => {
+    const open = unlocked[s];
+    const prefix = open.length <= cycles.length && open.every((cycle, c) => cycle.join() === cycles[c].join());
+    if (!prefix || cycles.length - open.length > 1) throw new Error(`${source} seed ${s + 1}: unlocked drop is not the locked drop minus one cycle.`);
+    return { unlockedCycles: open.length, cycles };
+  });
 
-const bytes = encodeChestPatterns(patterns);
-writeFileSync(outPath, bytes);
-console.log(`Wrote ${bytes.length.toLocaleString()} bytes for ${patterns.length} seeds.`);
+  const bytes = encodeChestPatterns(patterns);
+  writeFileSync(new URL(`../src/data/${out}.bin`, import.meta.url), bytes);
+  console.log(`${out}: wrote ${bytes.length.toLocaleString()} bytes for ${patterns.length} seeds.`);
+}

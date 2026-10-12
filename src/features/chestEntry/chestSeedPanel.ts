@@ -136,7 +136,7 @@ export function renderChestSeedPanel(
   progress.subscribe(update);
   update();
   status.textContent = "Loading chest drop patterns…";
-  loadChestPatterns().then(
+  loadChestPatterns(progress.chestTable).then(
     (loaded) => {
       patterns = loaded;
       update();
