@@ -2,7 +2,6 @@ import { GAME_TYPE_LABELS, type PickedPlan, type PlayerProgress } from "../../ap
 import type { ChestSearch } from "../../chest/chestSeedMatcher";
 import { MAX_CHEST_DRAWS, chestSeedStream, findChestDraws, type DrawHit } from "../../chest/chestStream";
 import { refineAdvice } from "../../chest/refine";
-import { MAX_WAIT_SECONDS } from "../../chest/runePlan";
 import { routeName, routeText } from "../../chest/waypoints";
 import { button, el } from "../../ui/dom";
 import { formatSeed, plural } from "../../ui/format";
@@ -31,8 +30,6 @@ export function renderPlanSummary(progress: PlayerProgress): HTMLElement {
             ` at draw ${plan.draw} (chest seed `,
             el("code", { textContent: String(plan.seed) }),
             `). Route: ${routeText(plan.stops)}. ${waitText(plan.wait)}, planned from draw ${plan.distance} and fire rate ${plan.fireRate}×/s.`,
-            plan.wait > MAX_WAIT_SECONDS &&
-              el("span", { className: "long-wait-tag", textContent: ` Long ${plan.rune} wait: any timing error grows with it.` }),
           )
         : el(
             "p",

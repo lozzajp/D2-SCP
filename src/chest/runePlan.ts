@@ -10,14 +10,19 @@ export const RUNES = [
 ] as const;
 export type Rune = (typeof RUNES)[number];
 export const CHEST_RUNES: readonly Rune[] = RUNES.slice(0, RUNES.indexOf("Cham") + 1);
-export const LONG_WAIT_RUNE: Rune = "Ber";
 
 export function runesUpTo(top: Rune): readonly Rune[] {
   return CHEST_RUNES.slice(0, CHEST_RUNES.indexOf(top) + 1);
 }
 
-export const MAX_WAIT_SECONDS = 600;
-export const MAX_BER_WAIT_SECONDS = 1500;
+export type RunePicks = ReadonlyMap<Rune, number>;
+export const MAX_PICK_WAIT_SECONDS = 3600;
+export const DEFAULT_MIN_RUNE: Rune = "Pul";
+
+export function defaultRunePick(rune: Rune, minRune: Rune = DEFAULT_MIN_RUNE): { on: boolean; wait: number } {
+  return { on: RANK.get(rune)! >= RANK.get(minRune)!, wait: RANK.get(rune)! >= RANK.get("Ber")! ? 1500 : 600 };
+}
+
 export const PLATFORM_FIRE_RATES: Partial<Record<PlatformId, number>> = { pc: 3, ps: 1.7 };
 export const FIRE_RATE_NOTE = "known range 1.0 - 3.0: PC about 3.0, PS5 about 1.7";
 const LOOK_BEYOND = 6000;
@@ -63,19 +68,11 @@ export interface RunePlanOptions {
   gameType: GameType;
   distance: number;
   fireRate: number;
-  minRune: Rune;
+  picks: RunePicks;
   includeEarly?: boolean;
   mode?: RouteMode;
   direct?: number;
   waypointAdds?: ReadonlyMap<WaypointId, number>;
-}
-
-export function isLongWait(target: RuneTarget): boolean {
-  return target.wait > MAX_WAIT_SECONDS;
-}
-
-export function allowsLongWait(rune: Rune): boolean {
-  return RANK.get(rune)! >= RANK.get(LONG_WAIT_RUNE)!;
 }
 
 export function chestRunes(patterns: ChestPatterns, seed: number): ChestRunes {
@@ -84,7 +81,7 @@ export function chestRunes(patterns: ChestPatterns, seed: number): ChestRunes {
 }
 
 export function planRunes(patterns: ChestPatterns, options: RunePlanOptions): RunePlan {
-  const { distance, fireRate, minRune } = options;
+  const { distance, fireRate, picks } = options;
   const mode = options.mode ?? "wait";
   const adds = options.waypointAdds ?? new Map<WaypointId, number>();
   if (mode === "waypoints") return planWaypoints(patterns, options, new WaypointHops(adds));
@@ -92,36 +89,33 @@ export function planRunes(patterns: ChestPatterns, options: RunePlanOptions): Ru
 
   const hops = new WaypointHops(mode === "combo" ? adds : new Map(), [RIVER_OF_FLAME]);
   const first = Math.max(FIRST_CHEST_DRAW, Math.ceil(distance));
-  const last = Math.floor(distance + MAX_WAIT_SECONDS * fireRate) + hops.max;
-  const lastBer = Math.floor(distance + MAX_BER_WAIT_SECONDS * fireRate) + hops.max;
-  const stream = chestSeedStream(options.gameSeed, options.gameType, Math.max(lastBer, last + LOOK_BEYOND));
-  const route = (draw: number, seed: number, runes: Pick<RuneTarget, "rune" | "needsLock" | "runes">): RuneTarget => {
+  const longest = Math.max(0, ...picks.values());
+  const last = Math.floor(distance + longest * fireRate) + hops.max;
+  const stream = chestSeedStream(options.gameSeed, options.gameType, last + LOOK_BEYOND);
+  const place = (draw: number) => {
     const hop = hops.atMost(draw - distance);
     const start = distance + hop.total;
-    return { draw, seed, ...runes, stops: [...hop.stops, RIVER_OF_FLAME], start, wait: (draw - start) / fireRate, off: 0 };
+    return { stops: [...hop.stops, RIVER_OF_FLAME], start, wait: (draw - start) / fireRate, off: 0 };
   };
 
   const targets: RuneTarget[] = [];
-  for (let draw = first; draw <= lastBer; draw++) {
+  for (let draw = first; draw <= last; draw++) {
     const seed = stream[draw - 1];
-    const runes = chestRunes(patterns, seed);
-    const wanted = qualify(runes, minRune);
-    if (!wanted) continue;
-    const target = route(draw, seed, wanted);
-    if (target.wait <= MAX_WAIT_SECONDS) targets.push(target);
-    else if (target.wait <= MAX_BER_WAIT_SECONDS && qualify(runes, LONG_WAIT_RUNE)) targets.push(route(draw, seed, qualify(runes, LONG_WAIT_RUNE)!));
+    const spot = place(draw);
+    const wanted = qualify(chestRunes(patterns, seed), picks, spot.wait);
+    if (wanted) targets.push({ draw, seed, ...wanted, ...spot });
   }
   const early: RuneTarget[] = [];
   if (options.includeEarly) {
     for (let draw = FIRST_CHEST_DRAW; draw < first; draw++) {
-      const wanted = qualify(chestRunes(patterns, stream[draw - 1]), minRune);
-      if (wanted) early.push({ ...route(draw, stream[draw - 1], wanted), start: distance, wait: (draw - distance) / fireRate });
+      const wanted = qualify(chestRunes(patterns, stream[draw - 1]), picks, 0);
+      if (wanted) early.push({ draw, seed: stream[draw - 1], ...wanted, ...place(draw), start: distance, wait: (draw - distance) / fireRate });
     }
   }
   if (targets.length > 0) return { targets, early };
   for (let draw = first; draw <= last + LOOK_BEYOND; draw++) {
-    const wanted = qualify(chestRunes(patterns, stream[draw - 1]), minRune);
-    if (wanted) return { targets, early, next: route(draw, stream[draw - 1], wanted) };
+    const wanted = qualify(chestRunes(patterns, stream[draw - 1]), picks, 0);
+    if (wanted) return { targets, early, next: { draw, seed: stream[draw - 1], ...wanted, ...place(draw) } };
   }
   return { targets, early };
 }
@@ -134,7 +128,7 @@ function planWaypoints(patterns: ChestPatterns, options: RunePlanOptions, hops: 
   const targets: RuneTarget[] = [];
   for (let draw = first; draw <= last; draw++) {
     const seed = stream[draw - 1];
-    const wanted = qualify(chestRunes(patterns, seed), options.minRune);
+    const wanted = qualify(chestRunes(patterns, seed), options.picks, 0);
     if (!wanted) continue;
     const hop = hops.closest(draw - direct);
     const start = direct + hop.total;
@@ -153,7 +147,7 @@ function planRepeats(patterns: ChestPatterns, options: RunePlanOptions, adds: Re
   const targets: RuneTarget[] = [];
   for (let draw = first; draw <= MAX_REPEAT_DRAW; draw++) {
     const seed = stream[draw - 1];
-    const wanted = qualify(chestRunes(patterns, seed), options.minRune);
+    const wanted = qualify(chestRunes(patterns, seed), options.picks, 0);
     if (!wanted) continue;
     const goal = draw - direct;
     let best: { stops: WaypointId[]; total: number; cost: number } | undefined;
@@ -181,12 +175,12 @@ function joinRoute(pass: readonly WaypointId[], laps: readonly WaypointId[]): Wa
   return undefined;
 }
 
-function qualify(runes: ChestRunes, minRune: Rune): Pick<RuneTarget, "rune" | "needsLock" | "runes"> | undefined {
-  const min = RANK.get(minRune)!;
-  const always = bestRune(runes.always);
-  if (always && RANK.get(always)! >= min) return { rune: always, needsLock: false, runes };
-  const locked = bestRune(runes.ifLocked);
-  if (locked && RANK.get(locked)! >= min) return { rune: locked, needsLock: true, runes };
+function qualify(runes: ChestRunes, picks: RunePicks, wait: number): Pick<RuneTarget, "rune" | "needsLock" | "runes"> | undefined {
+  const fits = (rune: Rune) => (picks.get(rune) ?? -1) >= wait;
+  const always = bestRune(runes.always.filter(fits));
+  if (always) return { rune: always, needsLock: false, runes };
+  const locked = bestRune(runes.ifLocked.filter(fits));
+  if (locked) return { rune: locked, needsLock: true, runes };
   return undefined;
 }
 

@@ -3,16 +3,11 @@ import { planTables, type TableInput, type TableTarget } from "../../chest/allPl
 import { CHEST_AREAS, PLAYER_COUNTS, chestArea, tableKey, type ChestAreaId, type PatternTable } from "../../chest/areas";
 import { loadChestPatterns } from "../../chest/loadPatterns";
 import type { ChestPatterns } from "../../chest/patterns";
-import { rerollSeconds, runeChances, REROLL_SECONDS } from "../../chest/rerollValue";
 import {
   AVAILABLE_ROUTE_MODES,
   CHEST_RUNES,
   chestRunes,
   FIRE_RATE_NOTE,
-  isLongWait,
-  LONG_WAIT_RUNE,
-  MAX_BER_WAIT_SECONDS,
-  MAX_WAIT_SECONDS,
   WAYPOINT_TOLERANCE,
   type RouteMode,
   type Rune,
@@ -66,7 +61,16 @@ function planFor(progress: PlayerProgress, seed: KnownSeed, tables: Tables): Pla
       inputs.push({ table, patterns: tables.get(tableKey(table))!, route });
     }
   }
-  return { targets: planTables(inputs, seed, progress.minRune, progress.planSort), gaps, routes };
+  return { targets: planTables(inputs, seed, progress.pickedRunes, progress.planSort), gaps, routes };
+}
+
+function runePicksLink(text: string): HTMLAnchorElement {
+  return el("a", { href: "#/runes", textContent: text });
+}
+
+function noRunesNote(progress: PlayerProgress): HTMLElement | null {
+  if (progress.pickedRunes.size > 0) return null;
+  return el("p", { className: "lead error" }, "No runes picked: ", runePicksLink("choose some on Rune Picks"), " to see plans.");
 }
 
 export function renderRunePlanPanel(progress: PlayerProgress): HTMLElement {
@@ -182,7 +186,7 @@ function renderPickedLine(progress: PlayerProgress): HTMLElement {
       start: plan.distance,
       off: viaRiver ? 0 : plan.distance - plan.draw,
     };
-    root.replaceChildren(targetRow(target, null, verdicts(tables, plan.fireRate)(target).tag));
+    root.replaceChildren(targetRow(target, null));
   }
 
   progress.subscribe(render);
@@ -219,16 +223,16 @@ export function renderRunePreview(progress: PlayerProgress, seed: KnownSeed): HT
   loadAllTables().then(
     (tables) => {
       const { targets, gaps } = planFor(progress, seed, tables);
-      const minRune = progress.minRune;
       if (targets.length === 0) {
         root.replaceChildren(
-          el(
-            "p",
-            { className: "muted" },
-            gaps.length === progress.planAreas.length
-              ? "Calibrate an area to see which runes you can plan for."
-              : `No ${minRune} or better in reach for this seed.`,
-          ),
+          noRunesNote(progress) ??
+            el(
+              "p",
+              { className: "muted" },
+              gaps.length === progress.planAreas.length
+                ? "Calibrate an area to see which runes you can plan for."
+                : "None of your rune picks in reach for this seed.",
+            ),
         );
         return;
       }
@@ -238,7 +242,7 @@ export function renderRunePreview(progress: PlayerProgress, seed: KnownSeed): HT
         byTable.set(key, [...(byTable.get(key) ?? []), target]);
       }
       root.replaceChildren(
-        el("p", { className: "lead", textContent: `Runes you can plan for (${minRune}+):` }),
+        el("p", { className: "lead" }, "Runes you can plan for (", runePicksLink("your rune picks"), "):"),
         el(
           "ul",
           { className: "rune-summary" },
@@ -265,37 +269,38 @@ function createPlanList(progress: PlayerProgress, forSeed?: KnownSeed): { root: 
       showAll = false;
     }
     const { targets, gaps, routes } = planFor(progress, seed, tables);
-    const verdict = verdicts(tables, progress.settings.fireRate ?? 1);
     const notes = gaps.map(({ area, gap }) => gapNote(progress, area, gap));
     if (progress.planAreas.length === 0 || progress.planPlayers.length === 0) {
       root.replaceChildren(el("p", { className: "lead", textContent: "Pick at least one area and player count above to see plans." }));
       return 0;
     }
     if (targets.length === 0) {
+      const noRunes = noRunesNote(progress);
       root.replaceChildren(
         ...notes,
-        ...(routes.size > 0
-          ? [
-              el("p", {
-                className: "lead error",
-                textContent: `No ${progress.minRune} or better in reach for this seed. Reroll the game for a new seed, try another route or player count, or lower your lowest rune.`,
-              }),
-            ]
-          : []),
+        ...(noRunes
+          ? [noRunes]
+          : routes.size > 0
+            ? [
+                el(
+                  "p",
+                  { className: "lead error" },
+                  "None of your rune picks in reach for this seed. Reroll the game for a new seed, try another route or player count, or ",
+                  runePicksLink("pick more runes or longer waits"),
+                  ".",
+                ),
+              ]
+            : []),
       );
       return 0;
     }
     const shown = showAll ? targets : targets.slice(0, SHOWN_PLANS);
-    const noneWorth = targets.every((target) => !verdict(target).worth);
     root.replaceChildren(
       ...notes,
-      ...(noneWorth
-        ? [el("p", { className: "lead warning", textContent: "None of these beat rerolling on average, so a new game is likely the faster bet." })]
-        : []),
       el(
         "ol",
         { className: "draw-hits rune-plan" },
-        ...shown.map((target) => targetRow(target, pickButton(target, routes.get(target.area)!), verdict(target).tag)),
+        ...shown.map((target) => targetRow(target, pickButton(target, routes.get(target.area)!))),
       ),
       ...(targets.length > shown.length
         ? [
@@ -357,11 +362,7 @@ const MODE_HINTS: Partial<Record<RouteMode, string>> = {
 
 export function renderPlanFilters(progress: PlayerProgress): HTMLElement {
   const root = el("div", { className: "plan-filters" });
-  const minRune = el("select", {}, ...CHEST_RUNES.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
-  minRune.addEventListener("change", () => {
-    const rune = CHEST_RUNES.find((chestRune) => chestRune === minRune.value);
-    if (rune) progress.setMinRune(rune);
-  });
+  const runes = runePicksLink("");
   const areas = el("div", {});
   const players = el("div", {});
   const sort = el("div", {});
@@ -391,7 +392,7 @@ export function renderPlanFilters(progress: PlayerProgress): HTMLElement {
     );
     modeHint.textContent = MODE_HINTS[progress.routeMode] ?? "";
     coarseBadge.hidden = progress.routeMode !== "waypoints" && progress.routeMode !== "combo";
-    minRune.value = progress.minRune;
+    runes.textContent = runePicksText(progress.pickedRunes.size);
   }
 
   progress.subscribe(render);
@@ -399,7 +400,7 @@ export function renderPlanFilters(progress: PlayerProgress): HTMLElement {
   root.append(
     field("Areas", areas),
     field("Players", players),
-    field("Lowest rune", minRune),
+    field("Runes", runes),
     modeField,
     coarseBadge,
     modeHint,
@@ -413,12 +414,7 @@ export function renderPlanFilters(progress: PlayerProgress): HTMLElement {
           "Every area and /players setting drops different items from the same chest seeds, so plans cover each one you have switched on. " +
           "Each plan is tagged with its area and player count: set that in game before you open the chest.",
       }),
-      el("p", {
-        textContent: `Waits stop at ${MAX_WAIT_SECONDS / 60} minutes, or ${MAX_BER_WAIT_SECONDS / 60} minutes for ${LONG_WAIT_RUNE} or better since they're so rare. Past that you're better off rerolling the game.`,
-      }),
-      el("p", {
-        textContent: `Each plan says whether it beats rerolling, which takes about ${REROLL_SECONDS / 60} minute per new game and seed search on average.`,
-      }),
+      el("p", {}, "Which runes are listed, and the longest River of Flame wait for each, are set on ", runePicksLink("Rune Picks"), "."),
       el("p", {
         textContent:
           "If you're lucky to have some grouped together within 100 draws, pick the earliest one to increase chances of it appearing in a later chest or later runes popping later too.",
@@ -500,53 +496,27 @@ function routeTag(target: RuneTarget): HTMLElement | false {
   return el("span", { className: "muted", textContent: `Route: ${routeText(target.stops)}${off}` });
 }
 
-interface Verdict {
-  worth: boolean;
-  tag: HTMLElement;
-}
-
-function verdicts(tables: Tables, fireRate: number): (target: TableTarget) => Verdict {
-  const averages = new Map<string, number>();
-  return (target) => {
-    const key = `${tableKey(target)}:${target.rune}`;
-    let average = averages.get(key);
-    if (average === undefined) {
-      const chances = runeChances(tables.get(tableKey(target))!);
-      average = rerollSeconds(chances.get(target.rune) ?? 0, fireRate, target.rune);
-      averages.set(key, average);
-    }
-    const worth = target.wait <= average;
-    return {
-      worth,
-      tag: el("span", {
-        className: worth ? "verdict worth" : "verdict reroll",
-        textContent: `${worth ? "Beats rerolling" : "Reroll is faster"} (avg ${formatDuration(average)})`,
-        title: `Rerolling until you get ${target.rune} or better takes about ${formatDuration(average)} on average.`,
-      }),
-    };
-  };
-}
-
 export function waitText(wait: number): string {
   const tenths = waitTenths(wait);
   if (tenths === 0) return "No wait";
   return tenths < 600 ? `Wait ${formatWait(wait)}` : `Wait ${formatWait(wait)} (${(tenths / 10).toFixed(1)}s)`;
 }
 
-function targetRow(target: TableTarget, pick: HTMLButtonElement | null, verdict: HTMLElement): HTMLElement {
+function runePicksText(count: number): string {
+  return count === 0 ? "No runes picked, choose some" : `${plural(count, "rune")} picked, edit`;
+}
+
+function targetRow(target: TableTarget, pick: HTMLButtonElement | null): HTMLElement {
   const others = [...target.runes.always, ...target.runes.ifLocked.map((rune) => `${rune} (if locked)`)];
   others.splice(others.indexOf(target.needsLock ? `${target.rune} (if locked)` : target.rune), 1);
   const rune = el("span", { className: "chest-item", textContent: `${target.rune} Rune` });
   rune.dataset.category = "rune";
-  const long = isLongWait(target);
   return el(
     "li",
-    { className: long ? "long-wait" : "" },
+    {},
     el("strong", { textContent: waitText(target.wait) }),
     rune,
     tableTag(target),
-    long && el("span", { className: "long-wait-tag", textContent: `Long ${target.rune} wait, past the usual ${MAX_WAIT_SECONDS / 60} minutes` }),
-    verdict,
     target.needsLock && el("span", { className: "badge locked-badge", textContent: "Locked Chest (21% Spawn Chance)" }),
     routeTag(target),
     el("span", { className: "muted" }, `Draw ${target.draw}, chest seed `, el("code", { textContent: String(target.seed) })),

@@ -1552,33 +1552,41 @@ button.preset {
   margin-left: 0.3rem;
 }
 
-.draw-hits li.long-wait {
-  border-left: 3px solid var(--warning);
-  background: rgb(255 168 0 / 0.08);
+.rune-picks-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
 }
 
-.draw-hits li.long-wait strong,
-.long-wait-tag {
-  color: var(--warning);
+.rune-picks-tools input,
+.rune-pick-list input[type="number"] {
+  width: 5rem;
 }
 
-.long-wait-tag {
-  font-size: 0.85em;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.rune-pick-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.verdict {
-  font-size: 0.85em;
+.rune-pick-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--sunken);
 }
 
-.verdict.worth {
-  color: var(--success);
-}
-
-.verdict.reroll {
-  color: var(--danger);
+.rune-pick-list li.off {
+  opacity: 0.5;
 }
 
 .wait-timer {

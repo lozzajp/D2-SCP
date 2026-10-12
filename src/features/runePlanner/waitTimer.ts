@@ -82,10 +82,12 @@ export function renderWaitTimer(progress: PlayerProgress, options: WaitTimerOpti
 
   function renderWarnings(plan: PickedPlan | null): void {
     const last = progress.lastPlan;
-    const playersKey = plan && last && last.players !== plan.players ? `${planKey(plan)}:${last.players}` : null;
+    const playersKey = !plan ? null : !last ? `${planKey(plan)}:first` : last.players !== plan.players ? `${planKey(plan)}:${last.players}` : null;
     playersWarning.show(
       playersKey,
-      `Last game was /players ${last?.players}, this plan is /players ${plan?.players}: set /players ${plan?.players}`,
+      last
+        ? `Last game was /players ${last.players}, this plan is /players ${plan?.players}: set /players ${plan?.players}`
+        : `This plan is /players ${plan?.players}: set /players ${plan?.players} if you haven't already`,
       "I changed player count",
     );
     const seedsKey = plan && seedCount > 1 ? `${planKey(plan)}:seeds` : null;

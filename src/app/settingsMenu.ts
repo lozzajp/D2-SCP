@@ -1,4 +1,4 @@
-import { CHEST_RUNES, FIRE_RATE_NOTE } from "../chest/runePlan";
+import { FIRE_RATE_NOTE } from "../chest/runePlan";
 import { button, el } from "../ui/dom";
 import { formatSeed } from "../ui/format";
 import { playerSettingInputs } from "./playerSettings";
@@ -20,11 +20,6 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
   const seedRow = el("div", { className: "settings-seed" });
   const fireRate = numberInput("fireRate", "0.1", "1.0 - 3.0");
   const player = playerSettingInputs(progress);
-  const minRune = el("select", {}, ...CHEST_RUNES.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
-  minRune.addEventListener("change", () => {
-    const rune = CHEST_RUNES.find((chestRune) => chestRune === minRune.value);
-    if (rune) progress.setMinRune(rune);
-  });
 
   function numberInput(key: keyof GameSettings, step: string, placeholder: string): HTMLInputElement {
     const input = el("input", { type: "number", min: "0", step, placeholder });
@@ -62,7 +57,7 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
         el("h3", { textContent: "Planning" }),
         el("label", {}, el("span", { textContent: "Fire rate" }), el("span", { className: "with-unit" }, fireRate, "×/s")),
         el("p", { className: "hint", textContent: `(${FIRE_RATE_NOTE})` }),
-        el("label", {}, el("span", { textContent: "Lowest rune wanted" }), minRune),
+        el("p", { className: "hint" }, "Runes and how long to wait for each are set on ", el("a", { href: "#/runes", textContent: "Rune Picks" }), "."),
         el("p", { className: "hint" }, "Route distances are set per area on the ", el("a", { href: "#/calibrate", textContent: "Calibrate page" }), "."),
       ),
       el(
@@ -82,7 +77,7 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
       item("Seed", known ? formatSeed(known.gameSeed) : null),
       item("Level", progress.charLevel === null ? null : String(progress.charLevel)),
       item("Fire", settings.fireRate === null ? null : `${settings.fireRate}×/s`),
-      item("Rune", `${progress.minRune}+`),
+      item("Runes", String(progress.pickedRunes.size)),
     );
     const closeMenu = () => setTimeout(() => (menu.open = false));
     seedRow.replaceChildren(
@@ -99,7 +94,6 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
     );
     if (document.activeElement !== fireRate) fireRate.value = settings.fireRate?.toString() ?? "";
     player.render();
-    minRune.value = progress.minRune;
   };
   progress.subscribe(render);
   render();

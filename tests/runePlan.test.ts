@@ -4,15 +4,12 @@ import rofP7Data from "../src/data/rof_hell_p7.bin?inline";
 import { ChestPatterns } from "../src/chest/patterns";
 import {
   CHEST_RUNES,
-  MAX_BER_WAIT_SECONDS,
   MAX_REPEAT_DRAW,
-  MAX_WAIT_SECONDS,
-  allowsLongWait,
   chestRunes,
-  isLongWait,
   planRunes,
   runesUpTo,
   type Rune,
+  type RunePicks,
   type RunePlanOptions,
   WAYPOINT_TOLERANCE,
 } from "../src/chest/runePlan";
@@ -23,7 +20,12 @@ beforeAll(async () => {
   patterns = new ChestPatterns(new Uint8Array(await (await fetch(patternsData)).arrayBuffer()));
 });
 
-const berGame: RunePlanOptions = { gameSeed: 638589163, gameType: "seedFlag", distance: 400, fireRate: 2, minRune: "Ber" };
+function picksFrom(min: Rune, wait = 600, rareWait = 1500): RunePicks {
+  const rank = (rune: Rune) => CHEST_RUNES.indexOf(rune);
+  return new Map(CHEST_RUNES.slice(rank(min)).map((rune) => [rune, rank(rune) >= rank("Ber") ? rareWait : wait]));
+}
+
+const berGame: RunePlanOptions = { gameSeed: 638589163, gameType: "seedFlag", distance: 400, fireRate: 2, picks: picksFrom("Ber") };
 
 describe("chestRunes", () => {
   it("never finds a rune above Ber in Lower Kurast", () => {
@@ -48,8 +50,6 @@ describe("chestRunes", () => {
     expect(found.has("Jah")).toBe(true);
     expect(found.has("Cham")).toBe(true);
     expect([...found].filter((rune) => !CHEST_RUNES.includes(rune as Rune))).toEqual([]);
-    expect(allowsLongWait("Cham")).toBe(true);
-    expect(allowsLongWait("Lo")).toBe(false);
   });
 
   it("finds the Ber in chest seed 4468", () => {
@@ -65,15 +65,16 @@ describe("planRunes", () => {
     expect(ber).toMatchObject({ seed: 4468, rune: "Ber", wait: 5.5 });
   });
 
-  it("only lists chests within the longest wait, soonest first, at the minimum rune or better", () => {
-    const { targets } = planRunes(patterns, { ...berGame, fireRate: 1, minRune: "Pul" });
+  it("only lists picked runes within their waits, soonest first", () => {
+    const picks = picksFrom("Pul");
+    const { targets } = planRunes(patterns, { ...berGame, fireRate: 1, picks });
     expect(targets.map((target) => [target.draw, target.rune])).toEqual([
       [411, "Ber"],
       [605, "Gul"],
     ]);
     for (const target of targets) {
       expect(target.wait).toBeGreaterThanOrEqual(0);
-      expect(target.wait).toBeLessThanOrEqual(MAX_WAIT_SECONDS);
+      expect(target.wait).toBeLessThanOrEqual(picks.get(target.rune)!);
       const runes = target.needsLock ? target.runes.ifLocked : target.runes.always;
       expect(runes).toContain(target.rune);
     }
@@ -84,20 +85,27 @@ describe("planRunes", () => {
     expect(targets.every((target) => target.draw >= 412)).toBe(true);
   });
 
-  it("waits longer for a Ber, but not for lesser runes", () => {
+  it("waits as long as each rune's pick allows", () => {
     const fireRate = 11 / 1100;
-    const { targets } = planRunes(patterns, { ...berGame, fireRate, minRune: "El" });
+    const { targets } = planRunes(patterns, { ...berGame, fireRate, picks: picksFrom("El") });
     const ber = targets.find((target) => target.draw === 411);
     expect(ber).toMatchObject({ rune: "Ber" });
     expect(ber!.wait).toBeCloseTo(1100);
-    expect(isLongWait(ber!)).toBe(true);
-    for (const target of targets.filter(isLongWait)) expect(target.rune).toBe("Ber");
-    expect(targets.every((target) => target.wait <= MAX_BER_WAIT_SECONDS)).toBe(true);
+    for (const target of targets.filter((target) => target.wait > 600)) expect(target.rune).toBe("Ber");
+    expect(targets.every((target) => target.wait <= 1500)).toBe(true);
     expect(planRunes(patterns, { ...berGame, fireRate: 11 / 1600 }).targets).toEqual([]);
   });
 
+  it("drops a rune whose wait is over its pick, or that isn't picked", () => {
+    const at411 = (picks: RunePicks) => planRunes(patterns, { ...berGame, picks }).targets.find((target) => target.draw === 411);
+    expect(at411(new Map([["Ber", 5]]))).toBeUndefined();
+    expect(at411(new Map([["Ber", 6]]))).toMatchObject({ rune: "Ber", wait: 5.5 });
+    expect(at411(new Map([["Jah", 600]]))).toBeUndefined();
+    expect(planRunes(patterns, { ...berGame, picks: new Map() }).targets).toEqual([]);
+  });
+
   it("says how far away the next rune is when none is in reach", () => {
-    const plan = planRunes(patterns, { ...berGame, distance: 606, fireRate: 1, minRune: "Vex" });
+    const plan = planRunes(patterns, { ...berGame, distance: 606, fireRate: 1, picks: picksFrom("Vex") });
     expect(plan.targets).toEqual([]);
     expect(plan.next).toMatchObject({ draw: 2017, rune: "Sur", wait: 1411 });
     expect(planRunes(patterns, { ...berGame, distance: 606, fireRate: 1 }).next).toBeUndefined();
@@ -125,7 +133,7 @@ describe("planRunes", () => {
 
   it("reaches far chests with full laps of the waypoints, then a last pass", () => {
     const waypointAdds = new Map<WaypointId, number>([["travincal", 100], ["lostCity", 60], ["coldPlains", 12]]);
-    const options = { ...berGame, distance: 300, direct: 300, minRune: "Vex" as Rune, mode: "repeats" as const, waypointAdds };
+    const options = { ...berGame, distance: 300, direct: 300, picks: picksFrom("Vex"), mode: "repeats" as const, waypointAdds };
     const { targets } = planRunes(patterns, options);
     const far = targets.filter((target) => target.draw > 300 + 172 + WAYPOINT_TOLERANCE);
     expect(far.length).toBeGreaterThan(0);

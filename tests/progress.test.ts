@@ -209,14 +209,38 @@ describe("PlayerProgress", () => {
     expect(progress.settings.fireRate).toBe(2.5);
   });
 
-  it("remembers the minimum rune, Pul by default", () => {
+  it("picks Pul and up by default, waiting longer for Ber and up, and remembers changes", () => {
     const storage = memoryStorage();
-    expect(new PlayerProgress(storage).minRune).toBe("Pul");
-    new PlayerProgress(storage).setMinRune("Ber");
-    expect(new PlayerProgress(storage).minRune).toBe("Ber");
-    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Bear" }))).minRune).toBe("Pul");
-    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Zod" }))).minRune).toBe("Pul");
-    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" }))).minRune).toBe("Jah");
+    const progress = new PlayerProgress(storage);
+    expect([...progress.pickedRunes.keys()][0]).toBe("Pul");
+    expect(progress.pickedRunes.get("Pul")).toBe(600);
+    expect(progress.pickedRunes.get("Ber")).toBe(1500);
+    expect(progress.pickedRunes.has("Lem")).toBe(false);
+    progress.setRunePick("Lem", { on: true, wait: 90 });
+    progress.setRunePick("Pul", { on: false });
+    const reloaded = new PlayerProgress(storage);
+    expect(reloaded.pickedRunes.get("Lem")).toBe(90);
+    expect(reloaded.pickedRunes.has("Pul")).toBe(false);
+    expect(reloaded.runePicks.Pul).toEqual({ on: false, wait: 600 });
+  });
+
+  it("applies a wait or pick to every rune at once, ignoring bad waits", () => {
+    const progress = new PlayerProgress(memoryStorage());
+    progress.setAllRunePicks({ wait: 120 });
+    expect(new Set(Object.values(progress.runePicks).map((pick) => pick.wait))).toEqual(new Set([120]));
+    progress.setAllRunePicks({ on: true });
+    expect(progress.pickedRunes.size).toBe(32);
+    progress.setRunePick("Ber", { wait: -5 });
+    progress.setRunePick("Ber", { wait: 99999 });
+    expect(progress.pickedRunes.get("Ber")).toBe(120);
+    progress.setRunePick("Zod" as never, { on: true });
+    expect(progress.pickedRunes.has("Zod" as never)).toBe(false);
+  });
+
+  it("turns an old lowest rune into rune picks", () => {
+    const old = new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" })));
+    expect([...old.pickedRunes.keys()]).toEqual(["Jah", "Cham"]);
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Bear" }))).pickedRunes.has("Pul")).toBe(true);
   });
 
   it("ignores bad saved settings", () => {
@@ -480,17 +504,6 @@ describe("PlayerProgress chest areas", () => {
     expect(tables).toEqual(["lowerKurast-1", "riverOfFlame-1", "riverOfFlame-5"]);
     expect(new PlayerProgress(storage).chestTable).toEqual({ area: "riverOfFlame", players: 5 });
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ players: 2 }))).players).toBe(7);
-  });
-
-  it("keeps one lowest rune for every area, up to Cham", () => {
-    const storage = memoryStorage();
-    const progress = new PlayerProgress(storage);
-    progress.setArea("riverOfFlame");
-    progress.setMinRune("Jah");
-    progress.setArea("lowerKurast");
-    expect(progress.minRune).toBe("Jah");
-    progress.setMinRune("Zod" as never);
-    expect(new PlayerProgress(storage).minRune).toBe("Jah");
   });
 
   it("plans every area and player count until filtered, remembering the filters", () => {

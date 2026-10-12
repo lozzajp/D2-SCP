@@ -1,13 +1,13 @@
 import type { PatternTable } from "./areas";
 import type { ChestPatterns } from "./patterns";
-import { RUNES, planRunes, type Rune, type RunePlanOptions, type RuneTarget } from "./runePlan";
+import { RUNES, planRunes, type RunePicks, type RunePlanOptions, type RuneTarget } from "./runePlan";
 
 export interface TableTarget extends RuneTarget, PatternTable {}
 
 export interface TableInput {
   table: PatternTable;
   patterns: ChestPatterns;
-  route: Omit<RunePlanOptions, "gameSeed" | "gameType" | "minRune">;
+  route: Omit<RunePlanOptions, "gameSeed" | "gameType" | "picks">;
 }
 
 export type TargetSort = "soonest" | "best";
@@ -17,11 +17,11 @@ const RANK = new Map<string, number>(RUNES.map((rune, rank) => [rune, rank]));
 export function planTables(
   inputs: readonly TableInput[],
   seed: Pick<RunePlanOptions, "gameSeed" | "gameType">,
-  minRune: Rune,
+  picks: RunePicks,
   sort: TargetSort = "soonest",
 ): TableTarget[] {
   const targets = inputs.flatMap(({ table, patterns, route }) =>
-    planRunes(patterns, { ...seed, ...route, minRune }).targets.map((target) => ({ ...target, ...table })),
+    planRunes(patterns, { ...seed, ...route, picks }).targets.map((target) => ({ ...target, ...table })),
   );
   return sortTargets(targets, sort);
 }

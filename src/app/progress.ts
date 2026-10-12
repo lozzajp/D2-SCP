@@ -16,9 +16,13 @@ import {
 import {
   AVAILABLE_ROUTE_MODES,
   CHEST_RUNES,
+  DEFAULT_MIN_RUNE,
+  MAX_PICK_WAIT_SECONDS,
   PLATFORM_FIRE_RATES,
+  defaultRunePick,
   type RouteMode,
   type Rune,
+  type RunePicks,
   type RunePlanOptions,
 } from "../chest/runePlan";
 import {
@@ -127,11 +131,14 @@ interface Saved {
   planPlayers: PlayerCount[];
   planSort: PlanSort;
   routeMode: RouteMode;
-  minRune: Rune;
+  runePicks: Record<Rune, RunePick>;
   calibratingWaypoints: boolean;
 }
 
-const DEFAULT_MIN_RUNE: Rune = "Pul";
+export interface RunePick {
+  on: boolean;
+  wait: number;
+}
 
 export class PlayerProgress {
   private readonly saved: Saved;
@@ -547,13 +554,22 @@ export class PlayerProgress {
     this.changed();
   }
 
-  get minRune(): Rune {
-    return this.saved.minRune;
+  get runePicks(): Readonly<Record<Rune, RunePick>> {
+    return this.saved.runePicks;
   }
 
-  setMinRune(rune: Rune): void {
+  get pickedRunes(): RunePicks {
+    return new Map(CHEST_RUNES.filter((rune) => this.saved.runePicks[rune].on).map((rune) => [rune, this.saved.runePicks[rune].wait]));
+  }
+
+  setRunePick(rune: Rune, change: Partial<RunePick>): void {
     if (!CHEST_RUNES.includes(rune)) return;
-    this.saved.minRune = rune;
+    this.saved.runePicks[rune] = cleanRunePick(change, this.saved.runePicks[rune]);
+    this.changed();
+  }
+
+  setAllRunePicks(change: Partial<RunePick>): void {
+    for (const rune of CHEST_RUNES) this.saved.runePicks[rune] = cleanRunePick(change, this.saved.runePicks[rune]);
     this.changed();
   }
 
@@ -581,6 +597,7 @@ type LegacySaved = Partial<Saved> &
     firstChestDrops?: unknown;
     firstChestExact?: unknown;
     firstChestSeed?: unknown;
+    minRune?: unknown;
   };
 
 function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
@@ -617,9 +634,21 @@ function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
     planPlayers: cleanList(data.planPlayers, PLAYER_COUNTS),
     planSort: PLAN_SORTS.includes(data.planSort as PlanSort) ? data.planSort! : "soonest",
     routeMode: AVAILABLE_ROUTE_MODES.includes(data.routeMode as RouteMode) ? data.routeMode! : "wait",
-    minRune: CHEST_RUNES.includes(data.minRune as Rune) ? data.minRune! : DEFAULT_MIN_RUNE,
+    runePicks: cleanRunePicks(data.runePicks, data.minRune),
     calibratingWaypoints: data.calibratingWaypoints === true && area === WAYPOINT_AREA,
   };
+}
+
+function cleanRunePicks(saved: unknown, minRune: unknown): Record<Rune, RunePick> {
+  const picks = (saved !== null && typeof saved === "object" ? saved : {}) as Partial<Record<Rune, unknown>>;
+  const min = CHEST_RUNES.includes(minRune as Rune) ? (minRune as Rune) : DEFAULT_MIN_RUNE;
+  return Object.fromEntries(CHEST_RUNES.map((rune) => [rune, cleanRunePick(picks[rune], defaultRunePick(rune, min))])) as Record<Rune, RunePick>;
+}
+
+function cleanRunePick(pick: unknown, fallback: RunePick): RunePick {
+  const { on, wait } = (pick ?? {}) as Partial<Record<keyof RunePick, unknown>>;
+  const validWait = typeof wait === "number" && Number.isFinite(wait) && wait >= 0 && wait <= MAX_PICK_WAIT_SECONDS;
+  return { on: typeof on === "boolean" ? on : fallback.on, wait: validWait ? wait : fallback.wait };
 }
 
 function cleanList<T>(saved: unknown, all: readonly T[]): T[] {
