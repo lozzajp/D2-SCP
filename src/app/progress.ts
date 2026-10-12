@@ -6,13 +6,21 @@ import {
   chestArea,
   isChestArea,
   isPlayerCount,
+  PLAYER_COUNTS,
   tableKey,
   type ChestAreaId,
   type ChestAreaInfo,
   type PatternTable,
   type PlayerCount,
 } from "../chest/areas";
-import { AVAILABLE_ROUTE_MODES, CHEST_RUNES, PLATFORM_FIRE_RATES, runesUpTo, type RouteMode, type Rune } from "../chest/runePlan";
+import {
+  AVAILABLE_ROUTE_MODES,
+  CHEST_RUNES,
+  PLATFORM_FIRE_RATES,
+  type RouteMode,
+  type Rune,
+  type RunePlanOptions,
+} from "../chest/runePlan";
 import {
   RIVER_OF_FLAME,
   ROUTE_IDS,
@@ -46,6 +54,7 @@ const STORAGE_KEY = "d2lkscp-progress";
 const GAME_TYPES = Object.keys(STORE_SEED_DRAWS) as GameType[];
 const CHEST_SLOTS: readonly ChestSlot[] = ["first", "refine"];
 const AREA_ROUTES: Record<ChestAreaId, readonly RouteId[]> = { lowerKurast: ROUTE_IDS, riverOfFlame: ["direct"] };
+const WAYPOINT_AREA: ChestAreaId = "lowerKurast";
 const PRESET_AREA: ChestAreaId = "lowerKurast";
 const PRESET_SAMPLES: readonly RouteSample[] = cleanRouteSamples(
   Object.entries(presetCalibration.draws).map(([route, draw]) => ({ route, draw, gameSeed: null, preset: true })),
@@ -75,7 +84,7 @@ export interface ChestEntry {
   seed: number | null;
 }
 
-export interface PickedPlan {
+export interface PickedPlan extends PatternTable {
   draw: number;
   seed: number;
   rune: Rune;
@@ -85,9 +94,14 @@ export interface PickedPlan {
   stops: WaypointId[];
 }
 
+export type PlanSort = "soonest" | "best";
+export const PLAN_SORTS: readonly PlanSort[] = ["soonest", "best"];
+
+export type PlanRoute = Pick<RunePlanOptions, "distance" | "fireRate" | "mode" | "direct" | "waypointAdds">;
+export type RouteGap = "direct" | "fireRate" | "river" | "waypoints";
+
 interface AreaSaved {
   chests: Record<ChestSlot, ChestEntry>;
-  plan: PickedPlan | null;
   distanceToFirstChest: number | null;
   routeSamples: RouteSample[];
   calibrationRoute: RouteId;
@@ -103,9 +117,13 @@ interface Saved {
   area: ChestAreaId;
   players: PlayerCount;
   areas: Record<ChestAreaId, AreaSaved>;
+  plan: PickedPlan | null;
+  lastPlan: PickedPlan | null;
+  planAreas: ChestAreaId[];
+  planPlayers: PlayerCount[];
+  planSort: PlanSort;
   routeMode: RouteMode;
   minRune: Rune;
-  advanced: boolean;
 }
 
 const DEFAULT_MIN_RUNE: Rune = "Pul";
@@ -115,6 +133,8 @@ export class PlayerProgress {
   private readonly storage: Pick<Storage, "getItem" | "setItem"> | undefined;
   private readonly listeners = new Set<() => void>();
   private readonly tableListeners = new Set<() => void>();
+  private readonly scoped = new Set<() => void>();
+  private collecting = false;
 
   constructor(storage: Pick<Storage, "getItem" | "setItem"> | undefined = globalThis.localStorage) {
     this.storage = storage;
@@ -139,29 +159,50 @@ export class PlayerProgress {
   }
 
   setArea(area: ChestAreaId): void {
-    if (area === this.saved.area) return;
-    this.changeTable(() => (this.saved.area = area));
+    if (!isChestArea(area) || area === this.saved.area) return;
+    this.switchTable(area, this.saved.players);
+    this.changed();
   }
 
   setPlayers(players: PlayerCount): void {
-    if (players === this.saved.players || !this.area.players.includes(players)) return;
-    this.changeTable(() => {
-      this.saved.players = players;
-      for (const slot of CHEST_SLOTS) this.here.chests[slot] = { ...this.here.chests[slot], seed: null };
-      this.here.plan = null;
-    });
+    if (players === this.saved.players || !isPlayerCount(players)) return;
+    this.switchTable(this.saved.area, players);
+    this.changed();
+  }
+
+  useTable({ area, players }: PatternTable): void {
+    if (!isChestArea(area) || !isPlayerCount(players) || tableKey({ area, players }) === tableKey(this.chestTable)) return;
+    this.switchTable(area, players);
+    this.changed();
   }
 
   onTableChange(listener: () => void): void {
     this.tableListeners.add(listener);
   }
 
-  private changeTable(change: () => void): void {
+  tableScoped<T>(build: () => T): T {
+    const was = this.collecting;
+    this.collecting = true;
+    try {
+      return build();
+    } finally {
+      this.collecting = was;
+    }
+  }
+
+  private switchTable(area: ChestAreaId, players: PlayerCount): void {
     const before = tableKey(this.chestTable);
-    change();
+    if (players !== this.saved.players) {
+      this.saved.players = players;
+      for (const saved of Object.values(this.saved.areas)) {
+        for (const slot of CHEST_SLOTS) saved.chests[slot] = { ...saved.chests[slot], seed: null };
+      }
+    }
+    this.saved.area = area;
     this.save();
     if (tableKey(this.chestTable) === before) return;
-    this.listeners.clear();
+    for (const listener of this.scoped) this.listeners.delete(listener);
+    this.scoped.clear();
     for (const listener of this.tableListeners) listener();
   }
 
@@ -173,8 +214,49 @@ export class PlayerProgress {
     return this.calibrationRoutes.length > 1;
   }
 
-  get chestRunes(): readonly Rune[] {
-    return runesUpTo(this.area.topRune);
+  hasWaypointsIn(area: ChestAreaId): boolean {
+    return AREA_ROUTES[area].length > 1;
+  }
+
+  isCalibrated(area: ChestAreaId): boolean {
+    return this.saved.areas[area].distanceToFirstChest !== null;
+  }
+
+  distanceIn(area: ChestAreaId): number | null {
+    return this.saved.areas[area].distanceToFirstChest;
+  }
+
+  riverAddsIn(area: ChestAreaId): number | null {
+    return riverAddsOf(this.saved.areas[area], area);
+  }
+
+  waypointAreaFor(area: ChestAreaId): ChestAreaId {
+    return this.hasWaypointsIn(area) ? area : WAYPOINT_AREA;
+  }
+
+  private planWaypointAdds(area: ChestAreaId): Map<WaypointId, number> {
+    const from = this.waypointAreaFor(area);
+    const adds = waypointAddsOf(this.saved.areas[from], from);
+    if (from !== area) adds.delete(RIVER_OF_FLAME);
+    return adds;
+  }
+
+  planRoute(area: ChestAreaId): PlanRoute | RouteGap {
+    const saved = this.saved.areas[area];
+    const direct = saved.distanceToFirstChest;
+    const fireRate = this.saved.fireRate;
+    if (direct === null) return "direct";
+    if (fireRate === null) return "fireRate";
+    const mode = this.saved.routeMode;
+    const waypointAdds = this.planWaypointAdds(area);
+    if (mode === "waypoints" || mode === "repeats") {
+      const needed = mode === "repeats" ? 2 : 1;
+      if ([...waypointAdds.values()].filter((value) => value > 0).length < needed) return "waypoints";
+      return { distance: direct, direct, fireRate, mode, waypointAdds };
+    }
+    const river = riverStartOf(saved, area);
+    if (river === null) return "river";
+    return { distance: river, direct, fireRate, mode, waypointAdds };
   }
 
   get knownSeed(): KnownSeed | null {
@@ -190,8 +272,9 @@ export class PlayerProgress {
     if (seed?.gameSeed !== old?.gameSeed || seed?.gameType !== old?.gameType) {
       for (const area of Object.values(this.saved.areas)) {
         for (const slot of CHEST_SLOTS) area.chests[slot] = { drops: [], exact: area.chests[slot].exact, seed: null };
-        area.plan = null;
       }
+      if (this.saved.plan) this.saved.lastPlan = this.saved.plan;
+      this.saved.plan = null;
     }
     this.saved.seed = seed;
     if (seed && !this.saved.seedHistory.some((past) => sameSeed(past, seed))) {
@@ -228,15 +311,6 @@ export class PlayerProgress {
 
   get settings(): GameSettings {
     return { distanceToFirstChest: this.here.distanceToFirstChest, fireRate: this.saved.fireRate };
-  }
-
-  get advanced(): boolean {
-    return this.saved.advanced;
-  }
-
-  setAdvanced(advanced: boolean): void {
-    this.saved.advanced = advanced;
-    this.changed();
   }
 
   updateSettings(changes: Partial<GameSettings>): void {
@@ -339,28 +413,19 @@ export class PlayerProgress {
   }
 
   get riverAdds(): number | null {
-    if (this.saved.area === "riverOfFlame") return 0;
-    return routeAdds(this.here.routeSamples, RIVER_OF_FLAME, this.here.distanceToFirstChest);
+    return riverAddsOf(this.here, this.saved.area);
   }
 
   get riverStart(): number | null {
-    const distance = this.here.distanceToFirstChest;
-    const adds = this.riverAdds;
-    return distance === null || adds === null ? null : distance + adds;
+    return riverStartOf(this.here, this.saved.area);
   }
 
   get waypointAdds(): Map<WaypointId, number> {
-    const adds = new Map<WaypointId, number>();
-    for (const { id } of WAYPOINTS) {
-      if (!this.calibrationRoutes.includes(id)) continue;
-      const value = routeAdds(this.here.routeSamples, id, this.here.distanceToFirstChest);
-      if (value !== null) adds.set(id, value);
-    }
-    return adds;
+    return waypointAddsOf(this.here, this.saved.area);
   }
 
   get routeMode(): RouteMode {
-    return this.hasWaypointRoutes ? this.saved.routeMode : "wait";
+    return this.saved.routeMode;
   }
 
   setRouteMode(mode: RouteMode): void {
@@ -383,26 +448,63 @@ export class PlayerProgress {
   }
 
   get plan(): PickedPlan | null {
-    return this.here.plan;
+    return this.saved.plan;
+  }
+
+  get lastPlan(): PickedPlan | null {
+    return this.saved.lastPlan;
   }
 
   setPlan(plan: PickedPlan | null): void {
-    this.here.plan = cleanPlan(plan);
+    const clean = cleanPlan(plan, this.chestTable);
+    this.saved.plan = clean;
+    if (clean) this.switchTable(clean.area, clean.players);
+    this.changed();
+  }
+
+  get planAreas(): readonly ChestAreaId[] {
+    return this.saved.planAreas;
+  }
+
+  togglePlanArea(area: ChestAreaId): void {
+    const on = !this.saved.planAreas.includes(area);
+    this.saved.planAreas = CHEST_AREAS.map(({ id }) => id).filter((id) => (id === area ? on : this.saved.planAreas.includes(id)));
+    this.changed();
+  }
+
+  get planPlayers(): readonly PlayerCount[] {
+    return this.saved.planPlayers;
+  }
+
+  togglePlanPlayers(players: PlayerCount): void {
+    const on = !this.saved.planPlayers.includes(players);
+    this.saved.planPlayers = PLAYER_COUNTS.filter((count) => (count === players ? on : this.saved.planPlayers.includes(count)));
+    this.changed();
+  }
+
+  get planSort(): PlanSort {
+    return this.saved.planSort;
+  }
+
+  setPlanSort(sort: PlanSort): void {
+    if (!PLAN_SORTS.includes(sort)) return;
+    this.saved.planSort = sort;
     this.changed();
   }
 
   get minRune(): Rune {
-    const runes = this.chestRunes;
-    return runes.includes(this.saved.minRune) ? this.saved.minRune : runes.at(-1)!;
+    return this.saved.minRune;
   }
 
   setMinRune(rune: Rune): void {
+    if (!CHEST_RUNES.includes(rune)) return;
     this.saved.minRune = rune;
     this.changed();
   }
 
   subscribe(listener: () => void): void {
     this.listeners.add(listener);
+    if (this.collecting) this.scoped.add(listener);
   }
 
   private changed(): void {
@@ -437,19 +539,51 @@ function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
     CHEST_AREAS.map(({ id }) => [id, savedAreas ? cleanArea(savedAreas[id], id) : id === DEFAULT_AREA ? legacyArea(data) : cleanArea(null, id)]),
   ) as Record<ChestAreaId, AreaSaved>;
   const fireRate = savedAreas ? cleanSettings({ fireRate: data.fireRate }).fireRate : cleanSettings(data.settings).fireRate;
+  const area = isChestArea(data.area) ? data.area : DEFAULT_AREA;
+  const players = isPlayerCount(data.players) ? data.players : DEFAULT_PLAYERS;
+  const areaPlan = (savedAreas?.[area] as { plan?: unknown } | undefined)?.plan;
   return {
     seed: cleanSeed(data.seed),
     seedHistory: cleanSeedHistory(data.seedHistory),
     platform: PLATFORMS.some((platform) => platform.id === data.platform) ? data.platform! : "pc",
     charLevel: cleanCharLevel(data.charLevel) ?? loadState(storage).setup.charLevel,
     fireRate,
-    area: isChestArea(data.area) ? data.area : DEFAULT_AREA,
-    players: isPlayerCount(data.players) ? data.players : DEFAULT_PLAYERS,
+    area,
+    players,
     areas,
+    plan: cleanPlan(data.plan ?? areaPlan, { area, players }),
+    lastPlan: cleanPlan(data.lastPlan, { area, players }),
+    planAreas: cleanList(data.planAreas, CHEST_AREAS.map(({ id }) => id)),
+    planPlayers: cleanList(data.planPlayers, PLAYER_COUNTS),
+    planSort: PLAN_SORTS.includes(data.planSort as PlanSort) ? data.planSort! : "soonest",
     routeMode: AVAILABLE_ROUTE_MODES.includes(data.routeMode as RouteMode) ? data.routeMode! : "wait",
     minRune: CHEST_RUNES.includes(data.minRune as Rune) ? data.minRune! : DEFAULT_MIN_RUNE,
-    advanced: data.advanced === true,
   };
+}
+
+function cleanList<T>(saved: unknown, all: readonly T[]): T[] {
+  return Array.isArray(saved) ? all.filter((item) => saved.includes(item)) : [...all];
+}
+
+function riverAddsOf(saved: AreaSaved, area: ChestAreaId): number | null {
+  if (AREA_ROUTES[area].length === 1) return 0;
+  return routeAdds(saved.routeSamples, RIVER_OF_FLAME, saved.distanceToFirstChest);
+}
+
+function riverStartOf(saved: AreaSaved, area: ChestAreaId): number | null {
+  const distance = saved.distanceToFirstChest;
+  const adds = riverAddsOf(saved, area);
+  return distance === null || adds === null ? null : distance + adds;
+}
+
+function waypointAddsOf(saved: AreaSaved, area: ChestAreaId): Map<WaypointId, number> {
+  const adds = new Map<WaypointId, number>();
+  for (const { id } of WAYPOINTS) {
+    if (!AREA_ROUTES[area].includes(id)) continue;
+    const value = routeAdds(saved.routeSamples, id, saved.distanceToFirstChest);
+    if (value !== null) adds.set(id, value);
+  }
+  return adds;
 }
 
 function legacyArea(data: LegacySaved): AreaSaved {
@@ -473,7 +607,6 @@ function cleanArea(area: unknown, id: ChestAreaId): AreaSaved {
   const chests = (data.chests ?? {}) as Partial<Record<ChestSlot, unknown>>;
   return {
     chests: { first: cleanChest(chests.first), refine: cleanChest(chests.refine) },
-    plan: cleanPlan(data.plan),
     distanceToFirstChest: cleanSettings({ distanceToFirstChest: data.distanceToFirstChest }).distanceToFirstChest,
     routeSamples: cleanRouteSamples(data.routeSamples).filter(
       (sample) => allowed(sample.route) && (!sample.preset || id === PRESET_AREA),
@@ -492,8 +625,8 @@ function cleanChest(chest: unknown): ChestEntry {
   return { drops: cleanDrops(drops), exact: false, seed: cleanChestSeed(seed) };
 }
 
-function cleanPlan(plan: unknown): PickedPlan | null {
-  const { draw, seed, rune, wait, distance, fireRate, stops } = (plan ?? {}) as Partial<Record<keyof PickedPlan, unknown>>;
+function cleanPlan(plan: unknown, fallback: PatternTable): PickedPlan | null {
+  const { draw, seed, rune, wait, distance, fireRate, stops, area, players } = (plan ?? {}) as Partial<Record<keyof PickedPlan, unknown>>;
   const route = stops === undefined ? [RIVER_OF_FLAME] : stops;
   const valid =
     Number.isInteger(draw) &&
@@ -508,7 +641,18 @@ function cleanPlan(plan: unknown): PickedPlan | null {
     cleanSettings({ fireRate }).fireRate !== null &&
     Array.isArray(route) &&
     route.every((stop) => isRouteId(stop) && stop !== "direct");
-  return valid ? ({ draw, seed, rune, wait, distance, fireRate, stops: [...route] } as PickedPlan) : null;
+  if (!valid) return null;
+  return {
+    draw,
+    seed,
+    rune,
+    wait,
+    distance,
+    fireRate,
+    stops: [...route],
+    area: isChestArea(area) ? area : fallback.area,
+    players: isPlayerCount(players) ? players : fallback.players,
+  } as PickedPlan;
 }
 
 export function cleanRouteSamples(samples: unknown): RouteSample[] {

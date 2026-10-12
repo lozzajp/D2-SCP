@@ -1,30 +1,26 @@
-import { MAX_CHEST_DRAWS } from "../chest/chestStream";
-import { FIRE_RATE_NOTE } from "../chest/runePlan";
+import { CHEST_RUNES, FIRE_RATE_NOTE } from "../chest/runePlan";
 import { PLATFORMS } from "../gamble/settings";
-import { el } from "../ui/dom";
+import { button, el } from "../ui/dom";
 import { formatSeed } from "../ui/format";
 import { GAME_TYPE_LABELS, type GameSettings, type PlayerProgress } from "./progress";
+
+const STORAGE_PREFIX = "d2lkscp-";
 
 export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
   const summary = el("summary", { title: "Game settings" });
   const seedRow = el("div", { className: "settings-seed" });
-  const distance = numberInput("distanceToFirstChest", "1", "e.g. 72");
-  const riverAdds = el("code", {});
   const fireRate = numberInput("fireRate", "0.1", "1.0 - 3.0");
-  Object.assign(distance, { min: "1", max: String(MAX_CHEST_DRAWS) });
   const platform = el("select", {}, ...PLATFORMS.map(({ id, label }) => el("option", { value: id, textContent: label })));
   platform.addEventListener("change", () => {
     const picked = PLATFORMS.find(({ id }) => id === platform.value);
     if (picked) progress.setPlatform(picked.id);
   });
-  const minRune = el("select", {}, ...progress.chestRunes.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
+  const minRune = el("select", {}, ...CHEST_RUNES.map((rune) => el("option", { value: rune, textContent: `${rune} or better` })));
   minRune.addEventListener("change", () => {
-    const rune = progress.chestRunes.find((chestRune) => chestRune === minRune.value);
+    const rune = CHEST_RUNES.find((chestRune) => chestRune === minRune.value);
     if (rune) progress.setMinRune(rune);
   });
   const charLevel = el("input", { type: "number", min: "1", max: "99", step: "1", className: "level-input" });
-  const advanced = el("input", { type: "checkbox" });
-  advanced.addEventListener("change", () => progress.setAdvanced(advanced.checked));
   charLevel.addEventListener("change", () => {
     const level = Number(charLevel.value);
     if (charLevel.value.trim() !== "" && Number.isFinite(level)) progress.setCharLevel(Math.min(99, Math.max(1, level)));
@@ -58,27 +54,18 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
       el(
         "section",
         { className: "settings-section" },
-        el("h3", { textContent: "Calibration" }),
-        el("label", {}, el("span", { textContent: "Distance to first chest (direct)" }), distance),
-        progress.hasWaypointRoutes && el("div", { className: "settings-row" }, el("span", { textContent: "River of Flame adds" }), riverAdds),
+        el("h3", { textContent: "Planning" }),
         el("label", {}, el("span", { textContent: "Fire rate" }), el("span", { className: "with-unit" }, fireRate, "×/s")),
         el("p", { className: "hint", textContent: `(${FIRE_RATE_NOTE})` }),
-      ),
-      el(
-        "section",
-        { className: "settings-section" },
-        el("h3", { textContent: "Planning" }),
         el("label", {}, el("span", { textContent: "Lowest rune wanted" }), minRune),
+        el("p", { className: "hint" }, "Route distances are set per area on the ", el("a", { href: "#/calibrate", textContent: "Calibrate page" }), "."),
       ),
       el(
         "section",
         { className: "settings-section" },
-        el("h3", { textContent: "Mode" }),
-        el("label", { className: "check" }, el("span", { textContent: "Advanced mode" }), advanced),
-        el("p", {
-          className: "hint",
-          textContent: `Hides the how-to notes at the top of pages, and adds the Repeat page's quick search options to Find your seed.`,
-        }),
+        el("h3", { textContent: "Data" }),
+        button("Reset data", resetData, "danger"),
+        el("p", { className: "hint", textContent: "Deletes everything this site saved in your browser: calibration, seeds, plans and settings." }),
       ),
     ),
   );
@@ -87,11 +74,8 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
     const known = progress.knownSeed;
     const settings = progress.settings;
     summary.replaceChildren(
-      item("Area", progress.area.players.length > 1 ? `${progress.area.short} /p${progress.players}` : progress.area.short),
       item("Seed", known ? formatSeed(known.gameSeed) : null),
       item("Level", String(progress.charLevel)),
-      item("Distance", settings.distanceToFirstChest === null ? null : String(settings.distanceToFirstChest)),
-      ...(progress.hasWaypointRoutes ? [item("RoF", progress.riverAdds === null ? null : `+${progress.riverAdds}`)] : []),
       item("Fire", settings.fireRate === null ? null : `${settings.fireRate}×/s`),
       item("Rune", `${progress.minRune}+`),
     );
@@ -105,16 +89,13 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
           ]
         : [
             el("span", { className: "muted", textContent: "Not known yet." }),
-            el("a", { href: "#/seed", textContent: "Find your seed →", onclick: closeMenu }),
+            el("a", { href: "#/run", textContent: "Find your seed →", onclick: closeMenu }),
           ]),
     );
-    if (document.activeElement !== distance) distance.value = settings.distanceToFirstChest?.toString() ?? "";
-    riverAdds.textContent = progress.riverAdds === null ? "not measured" : `+${progress.riverAdds}`;
     if (document.activeElement !== fireRate) fireRate.value = settings.fireRate?.toString() ?? "";
     platform.value = progress.platform;
     if (document.activeElement !== charLevel) charLevel.value = String(progress.charLevel);
     minRune.value = progress.minRune;
-    advanced.checked = progress.advanced;
   };
   progress.subscribe(render);
   render();
@@ -129,6 +110,16 @@ export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
     }
   });
   return menu;
+}
+
+function resetData(): void {
+  if (!confirm("Reset all data? This deletes your calibration, seeds, plans and settings from this browser. It can't be undone.")) return;
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(STORAGE_PREFIX)) localStorage.removeItem(key);
+  } catch {
+  }
+  location.hash = "#/run";
+  location.reload();
 }
 
 function item(label: string, value: string | null): HTMLElement {

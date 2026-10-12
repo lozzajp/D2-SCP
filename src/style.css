@@ -140,6 +140,19 @@
   font-size: 0.9em;
 }
 
+button.danger {
+  border-color: var(--red);
+  background: var(--red-deep);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--red-bright);
+  background: #8a1016;
+  color: #fff;
+}
+
 button.primary {
   border-color: #d6343b;
   background: linear-gradient(#c21c24, #8a1016);
@@ -1246,14 +1259,88 @@ a.button-link:hover {
   color: var(--red-bright);
 }
 
-body.advanced-mode .guide:not(.keep):not(.with-status),
-body.advanced-mode .guide:not(.keep) .guide-steps,
-body.advanced-mode .guide:not(.keep) > .lead {
-  display: none;
+.plan-filters {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--sunken);
 }
 
-body:not(.advanced-mode) .advanced-only {
-  display: none;
+.plan-filters .field {
+  margin: 0;
+}
+
+.badge.table-badge {
+  border-color: var(--red);
+  color: var(--text-strong);
+  background: var(--red-deep);
+  white-space: nowrap;
+}
+
+.badge.table-badge[data-area="riverOfFlame"] {
+  border-color: #c2621d;
+  background: #3a1d08;
+}
+
+.rune-summary {
+  margin: 0.25rem 0 0.5rem;
+  color: var(--muted);
+}
+
+.seed-plan + .seed-plan {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.plan-body > * + * {
+  margin-top: 0.5rem;
+}
+
+.calibration-banner {
+  margin: 0 0 1rem;
+}
+
+.calibration-banner.first-time {
+  border-color: var(--red);
+}
+
+.cal-ok {
+  color: var(--success);
+}
+
+.cal-missing {
+  color: var(--muted);
+}
+
+.area-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.area-status li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.calibrate-intro .area-picker {
+  justify-content: flex-start;
+}
+
+.main-nav a.needs-attention:not([aria-current])::after {
+  content: "";
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: var(--red-bright);
 }
 
 [data-category="misc"] {
@@ -1355,6 +1442,14 @@ button.preset {
 .badge.done {
   border-color: var(--success);
   color: var(--success);
+}
+
+.badge.coarse-badge {
+  display: inline-block;
+  margin: 0.25rem 0;
+  border-color: #e08a2c;
+  color: #f0a64a;
+  background: #2e1a06;
 }
 
 .badge.locked-badge {
@@ -1544,12 +1639,18 @@ button.preset {
 }
 
 .wait-timer {
+  scroll-margin-top: 1rem;
   margin-top: 1rem;
   padding: 0.75rem 1rem 1rem;
   border: 1px solid var(--line-strong);
   border-radius: 2px;
   background: var(--sunken);
   text-align: center;
+}
+
+.wait-timer .picked-plan {
+  margin: 0.5rem 0;
+  text-align: left;
 }
 
 .wait-timer h3 {
@@ -1664,9 +1765,91 @@ button.preset {
   margin-top: 1rem;
 }
 
+.players-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.players-change-badge {
+  border-color: #e08a2c;
+  color: #f0a64a;
+  background: #2e1a06;
+  text-transform: none;
+  font-size: 0.95rem;
+  white-space: normal;
+}
+
+.players-change-badge .dismiss-button {
+  margin: 0 0 0 0.35rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #f0a64a;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.players-change-badge .dismiss-button:hover {
+  color: var(--text-strong);
+}
+
+.dismiss-x {
+  display: inline-block;
+  margin-left: 0.2rem;
+  color: var(--red-bright);
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.no-match {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--red);
+  border-radius: 2px;
+  background: var(--red-deep);
+  text-align: center;
+}
+
+.no-match-badge {
+  display: inline-block;
+  padding: 0.3em 0.9em;
+  border-color: var(--red-bright);
+  color: var(--red-bright);
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.no-match-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.manual-seed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.manual-seed input {
+  width: 12rem;
+}
+
 .new-run {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
   margin: 1.5rem 0;
 }
 
@@ -1674,4 +1857,9 @@ button.preset {
   min-width: 16rem;
   padding: 0.9rem 2rem;
   font-size: 1.25rem;
+}
+
+.new-run button.refine-cta {
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
 }

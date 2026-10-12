@@ -13,7 +13,7 @@ export function renderKnownSeedPanel(progress: PlayerProgress): HTMLElement {
 
   const render = () => {
     const known = progress.knownSeed;
-    panel.replaceChildren(el("div", { className: "panel-head" }, el("h2", { textContent: "Manual Seed (Advanced)" })));
+    panel.replaceChildren(el("div", { className: "panel-head" }, el("h2", { textContent: "Manual Seed" })));
 
     if (known) {
       panel.append(
@@ -31,7 +31,7 @@ export function renderKnownSeedPanel(progress: PlayerProgress): HTMLElement {
         el(
           "div",
           { className: "step-footer" },
-          el("a", { className: "button-link primary", href: "#/calibrate", textContent: "Next: calibrate your routes →" }),
+          el("a", { className: "button-link primary", href: "#/run", textContent: "Next: see your rune plans →" }),
         ),
       );
       return;

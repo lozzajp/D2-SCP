@@ -78,7 +78,7 @@ describe("PlayerProgress", () => {
     progress.setKnownSeed({ gameSeed: 1, gameType: "seedFlag" });
     progress.updateChest("first", { drops: ["Gold"], seed: 4468, exact: true });
     progress.updateChest("refine", { drops: ["Ber Rune"], seed: 4468 });
-    progress.setPlan({ draw: 411, seed: 4468, rune: "Ber", wait: 5, distance: 400, fireRate: 2, stops: ["riverOfFlame"] });
+    progress.setPlan({ area: "lowerKurast", players: 7, draw: 411, seed: 4468, rune: "Ber", wait: 5, distance: 400, fireRate: 2, stops: ["riverOfFlame"] });
     progress.setKnownSeed({ gameSeed: 1, gameType: "seedFlag" });
     expect(progress.chest("first").seed).toBe(4468);
     expect(progress.plan).not.toBeNull();
@@ -87,19 +87,33 @@ describe("PlayerProgress", () => {
     expect(progress.chest("first")).toEqual({ drops: [], exact: true, seed: null });
     expect(progress.chest("refine")).toEqual({ drops: [], exact: false, seed: null });
     expect(progress.plan).toBeNull();
+    expect(progress.lastPlan).toMatchObject({ players: 7, draw: 411 });
+    progress.setKnownSeed({ gameSeed: 3, gameType: "seedFlag" });
+    expect(progress.lastPlan).toMatchObject({ players: 7, draw: 411 });
   });
 
   it("remembers the picked plan, ignoring bad ones", () => {
     const storage = memoryStorage();
-    const plan = { draw: 411, seed: 4468, rune: "Ber" as const, wait: 5.5, distance: 400, fireRate: 2, stops: ["travincal" as const] };
+    const plan = {
+      area: "lowerKurast" as const,
+      players: 7 as const,
+      draw: 411,
+      seed: 4468,
+      rune: "Ber" as const,
+      wait: 5.5,
+      distance: 400,
+      fireRate: 2,
+      stops: ["travincal" as const],
+    };
     new PlayerProgress(storage).setPlan(plan);
     expect(new PlayerProgress(storage).plan).toEqual(plan);
 
     for (const bad of [{ ...plan, rune: "Zod" }, { ...plan, seed: 0 }, { ...plan, fireRate: 0 }, { ...plan, draw: "411" }, { ...plan, stops: ["direct"] }]) {
       expect(new PlayerProgress(memoryStorage(JSON.stringify({ plan: bad }))).plan).toBeNull();
     }
-    const { stops: _, ...old } = plan;
+    const { stops: _, area: __, players: ___, ...old } = plan;
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ plan: old }))).plan?.stops).toEqual(["riverOfFlame"]);
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ plan: old, players: 3 }))).plan).toMatchObject({ area: "lowerKurast", players: 3 });
 
     const long = { ...plan, draw: 1450, distance: 1460, wait: 0 };
     new PlayerProgress(storage).setPlan(long);
@@ -173,7 +187,7 @@ describe("PlayerProgress", () => {
     expect(new PlayerProgress(storage).minRune).toBe("Ber");
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Bear" }))).minRune).toBe("Pul");
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Zod" }))).minRune).toBe("Pul");
-    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" }))).minRune).toBe("Ber");
+    expect(new PlayerProgress(memoryStorage(JSON.stringify({ minRune: "Jah" }))).minRune).toBe("Jah");
   });
 
   it("ignores bad saved settings", () => {
@@ -347,8 +361,13 @@ describe("PlayerProgress chest areas", () => {
     progress.addRouteSample("direct", 90);
     expect(progress.riverAdds).toBe(0);
     expect(progress.riverStart).toBe(90);
+    progress.updateSettings({ fireRate: 2 });
     progress.setRouteMode("combo");
-    expect(progress.routeMode).toBe("wait");
+    expect(progress.routeMode).toBe("combo");
+    expect(progress.planRoute("riverOfFlame")).toMatchObject({ mode: "combo", distance: 90, direct: 90, fireRate: 2 });
+    progress.setRouteMode("waypoints");
+    expect(progress.planRoute("riverOfFlame")).toBe("waypoints");
+    progress.setRouteMode("combo");
     progress.importRouteSamples([{ route: "travincal", draw: 130, gameSeed: null }], false);
     expect(progress.routeSamples.map((sample) => sample.route)).toEqual(["direct"]);
 
@@ -358,6 +377,31 @@ describe("PlayerProgress chest areas", () => {
     reloaded.setArea("lowerKurast");
     expect(reloaded.settings.distanceToFirstChest).toBe(70);
     expect(reloaded.hasWaypointRoutes).toBe(true);
+  });
+
+  it("plans River of Flame waypoint routes from the Lower Kurast waypoint calibrations, without River of Flame as a hop", () => {
+    const progress = new PlayerProgress(memoryStorage());
+    progress.setKnownSeed({ gameSeed: 1, gameType: "normal" });
+    progress.addRouteSample("direct", 70);
+    progress.setKnownSeed({ gameSeed: 2, gameType: "normal" });
+    progress.addRouteSample("riverOfFlame", 120);
+    progress.setKnownSeed({ gameSeed: 3, gameType: "normal" });
+    progress.addRouteSample("travincal", 130);
+    progress.setArea("riverOfFlame");
+    progress.addRouteSample("direct", 90);
+    progress.updateSettings({ fireRate: 2 });
+    expect(progress.waypointAreaFor("riverOfFlame")).toBe("lowerKurast");
+    const adds = (area: "lowerKurast" | "riverOfFlame") => {
+      const route = progress.planRoute(area);
+      if (typeof route === "string") throw new Error(route);
+      return [...(route.waypointAdds ?? [])];
+    };
+    for (const mode of ["waypoints", "combo"] as const) {
+      progress.setRouteMode(mode);
+      expect(progress.planRoute("riverOfFlame")).toMatchObject({ mode, distance: 90, direct: 90 });
+      expect(adds("riverOfFlame")).toEqual([["travincal", 60]]);
+    }
+    expect(adds("lowerKurast")).toContainEqual(["riverOfFlame", 50]);
   });
 
   it("lets both areas pick 1, 3, 5 or 7 players, and tells listeners when the table changes", () => {
@@ -376,14 +420,66 @@ describe("PlayerProgress chest areas", () => {
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ players: 2 }))).players).toBe(7);
   });
 
-  it("allows Jah and Cham as the lowest rune only in River of Flame", () => {
-    const progress = new PlayerProgress(memoryStorage());
+  it("keeps one lowest rune for every area, up to Cham", () => {
+    const storage = memoryStorage();
+    const progress = new PlayerProgress(storage);
     progress.setArea("riverOfFlame");
-    expect(progress.chestRunes.at(-1)).toBe("Cham");
     progress.setMinRune("Jah");
-    expect(progress.minRune).toBe("Jah");
     progress.setArea("lowerKurast");
-    expect(progress.chestRunes.at(-1)).toBe("Ber");
-    expect(progress.minRune).toBe("Ber");
+    expect(progress.minRune).toBe("Jah");
+    progress.setMinRune("Zod" as never);
+    expect(new PlayerProgress(storage).minRune).toBe("Jah");
+  });
+
+  it("plans every area and player count until filtered, remembering the filters", () => {
+    const storage = memoryStorage();
+    const progress = new PlayerProgress(storage);
+    expect(progress.planAreas).toEqual(["lowerKurast", "riverOfFlame"]);
+    expect(progress.planPlayers).toEqual([1, 3, 5, 7]);
+    expect(progress.planSort).toBe("soonest");
+    progress.togglePlanArea("lowerKurast");
+    progress.togglePlanPlayers(3);
+    progress.togglePlanPlayers(7);
+    progress.togglePlanPlayers(3);
+    progress.setPlanSort("best");
+    const reloaded = new PlayerProgress(storage);
+    expect(reloaded.planAreas).toEqual(["riverOfFlame"]);
+    expect(reloaded.planPlayers).toEqual([1, 3, 5]);
+    expect(reloaded.planSort).toBe("best");
+  });
+
+  it("says what each area is missing before it can plan", () => {
+    const progress = new PlayerProgress(memoryStorage());
+    expect(progress.planRoute("lowerKurast")).toBe("direct");
+    progress.addRouteSample("direct", 72);
+    expect(progress.isCalibrated("lowerKurast")).toBe(true);
+    expect(progress.isCalibrated("riverOfFlame")).toBe(false);
+    expect(progress.planRoute("lowerKurast")).toBe("fireRate");
+    progress.updateSettings({ fireRate: 2 });
+    expect(progress.planRoute("lowerKurast")).toBe("river");
+    progress.addRouteSample("riverOfFlame", 130);
+    expect(progress.planRoute("lowerKurast")).toMatchObject({ mode: "wait", distance: 130, direct: 72 });
+    progress.setRouteMode("waypoints");
+    expect(progress.planRoute("lowerKurast")).toMatchObject({ mode: "waypoints", distance: 72 });
+  });
+
+  it("moves to a picked plan's table, keeping the plan when players change", () => {
+    const progress = new PlayerProgress(memoryStorage());
+    const tables: string[] = [];
+    progress.onTableChange(() => tables.push(`${progress.chestTable.area}-${progress.chestTable.players}`));
+    const plan = { area: "riverOfFlame" as const, players: 3 as const, draw: 200, seed: 4468, rune: "Ber" as const, wait: 5, distance: 190, fireRate: 2, stops: ["riverOfFlame" as const] };
+    progress.setPlan(plan);
+    expect(progress.chestTable).toEqual({ area: "riverOfFlame", players: 3 });
+    expect(tables).toEqual(["riverOfFlame-3"]);
+    progress.setPlayers(5);
+    expect(progress.plan).toEqual(plan);
+    progress.useTable(plan);
+    expect(tables).toEqual(["riverOfFlame-3", "riverOfFlame-5", "riverOfFlame-3"]);
+  });
+
+  it("moves an old per-area plan to the shared plan", () => {
+    const plan = { draw: 200, seed: 4468, rune: "Ber", wait: 5, distance: 190, fireRate: 2, stops: ["riverOfFlame"] };
+    const saved = JSON.stringify({ area: "riverOfFlame", players: 5, areas: { riverOfFlame: { plan } } });
+    expect(new PlayerProgress(memoryStorage(saved)).plan).toMatchObject({ area: "riverOfFlame", players: 5, draw: 200 });
   });
 });

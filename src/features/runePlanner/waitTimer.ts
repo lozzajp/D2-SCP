@@ -1,4 +1,5 @@
 import type { PickedPlan, PlayerProgress } from "../../app/progress";
+import { chestArea, tableKey } from "../../chest/areas";
 import { hasRepeats, RIVER_OF_FLAME, routeText, type WaypointId } from "../../chest/waypoints";
 import { button, el } from "../../ui/dom";
 import { waitTenths } from "../../ui/format";
@@ -17,34 +18,61 @@ interface Running {
   wakeLock: WakeLockSentinel | null;
 }
 
-export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
+export function renderWaitTimer(progress: PlayerProgress, planLine?: HTMLElement): HTMLElement {
   const clock = el("div", { className: "timer-clock" });
   const flash = el("div", { className: "timer-flash" });
   const note = el("p", { className: "hint" });
   const playersNote = el("p", { className: "lead" });
+  const playersWarning = el("div", { className: "players-change", hidden: true });
+  let dismissedWarning = "";
   const startButton = button("Start timer", () => start(), "primary");
   const stopButton = button("Reset", () => reset());
   const root = el(
     "div",
     { className: "wait-timer", hidden: true },
     el("h3", { textContent: "Wait timer" }),
+    planLine ?? false,
     playersNote,
     note,
     flash,
     clock,
+    playersWarning,
     el("div", { className: "timer-buttons" }, startButton, stopButton),
   );
   let running: Running | null = null;
   let shown: PickedPlan | null = null;
-  const lk = progress.hasWaypointRoutes;
-  const leave = lk ? "take the waypoint to Lower Kurast" : "walk to the chest";
+  const isLk = (plan: PickedPlan) => plan.area === "lowerKurast";
+  const leaveText = (plan: PickedPlan) => (isLk(plan) ? "take the waypoint to Lower Kurast" : "run/tele to the chest");
+
+  function renderPlayersWarning(plan: PickedPlan): void {
+    const last = progress.lastPlan;
+    const key = last ? `${tableKey(plan)}:${plan.draw}:${plan.seed}:${last.players}` : "";
+    playersWarning.hidden = !last || last.players === plan.players || key === dismissedWarning;
+    if (playersWarning.hidden || !last) return;
+    const dismiss = button("(dismiss) ", () => {
+      dismissedWarning = key;
+      playersWarning.hidden = true;
+    }, "dismiss-button");
+    dismiss.append(el("span", { className: "dismiss-x", textContent: "✕" }));
+    dismiss.title = "I changed player count";
+    playersWarning.replaceChildren(
+      el(
+        "span",
+        { className: "badge players-change-badge" },
+        `Last game was /players ${last.players}, this plan is /players ${plan.players}: set /players ${plan.players} `,
+        dismiss,
+      ),
+    );
+  }
 
   function render(): void {
     const plan = progress.plan;
     if (running && !samePlan(running.plan, plan)) reset();
     shown = plan;
     root.hidden = !plan;
+    if (plan) renderPlayersWarning(plan);
     if (!plan || running) return;
+    const leave = leaveText(plan);
     const seconds = waitTenths(plan.wait);
     startButton.hidden = seconds === 0;
     stopButton.hidden = true;
@@ -53,15 +81,15 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
     flash.textContent = "";
     playersNote.replaceChildren(
       "Make sure your game is on ",
-      el("strong", { textContent: `/players ${progress.players}` }),
-      ` before you start: this plan's chest drops are for ${progress.players} players. Type it in game chat if you're not sure.`,
+      el("strong", { textContent: `/players ${plan.players}` }),
+      ` before you start: this plan's chest drops are for ${plan.players} players in ${chestArea(plan.area).name}. Type it in game chat if you're not sure.`,
     );
     const before = hopsBefore(plan);
     if (seconds === 0 || plan.stops.at(-1) !== RIVER_OF_FLAME) {
       startButton.hidden = true;
       clock.textContent = "No wait";
       note.replaceChildren(
-        routeLine(plan.stops, "Route: ", ".", "Lower Kurast"),
+        routeLine(plan.stops, "Route: ", ".", chestArea(plan.area).name),
         hasRepeats(plan.stops)
           ? "Take each waypoint straight away and keep count of your laps. If your laps are very short, make sure 5 seconds pass before you're back in an area."
           : "Take each waypoint straight away, no waiting.",
@@ -116,8 +144,8 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
       return;
     }
     clock.className = "timer-clock go";
-    clock.textContent = `${progress.area.name} Super Chest Time`;
-    note.textContent = lk ? "Take the waypoint to Lower Kurast now." : "Walk to the chest now.";
+    clock.textContent = `${chestArea(running.plan.area).name} Super Chest Time`;
+    note.textContent = isLk(running.plan) ? "Take the waypoint to Lower Kurast now." : "Walk to the chest now.";
     stopButton.textContent = "Reset";
   }
 
@@ -137,7 +165,7 @@ export function renderWaitTimer(progress: PlayerProgress): HTMLElement {
 }
 
 function samePlan(a: PickedPlan | null, b: PickedPlan | null): boolean {
-  return !!a && !!b && a.draw === b.draw && a.seed === b.seed && a.wait === b.wait && routeText(a.stops) === routeText(b.stops);
+  return !!a && !!b && tableKey(a) === tableKey(b) && a.draw === b.draw && a.seed === b.seed && a.wait === b.wait && routeText(a.stops) === routeText(b.stops);
 }
 
 function hopsBefore(plan: PickedPlan): (string | Node)[] {

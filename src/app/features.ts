@@ -1,8 +1,8 @@
 import type { Feature } from "./feature";
+import { guide } from "./guidePage";
 import { chestCalibration } from "../features/chestCalibration/chestCalibrationFeature";
 import { refine } from "../features/refine/refineFeature";
-import { repeat } from "../features/repeat/repeatFeature";
-import { runePlanner } from "../features/runePlanner/runePlannerFeature";
+import { run } from "../features/run/runFeature";
 import { seedFinder } from "../features/seedFinder/seedFinderFeature";
 
-export const FEATURES: readonly Feature[] = [seedFinder, chestCalibration, runePlanner, refine, repeat];
+export const FEATURES: readonly Feature[] = [run, chestCalibration, refine, guide, seedFinder];

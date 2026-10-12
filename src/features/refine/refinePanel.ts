@@ -6,7 +6,7 @@ import { MAX_WAIT_SECONDS } from "../../chest/runePlan";
 import { routeName, routeText } from "../../chest/waypoints";
 import { button, el } from "../../ui/dom";
 import { formatSeed, plural } from "../../ui/format";
-import { waitText } from "../runePlanner/runePlanPanel";
+import { tableTag, waitText } from "../runePlanner/runePlanPanel";
 
 const SHOWN = 10;
 const RECALIBRATE_WITHIN = 100;
@@ -25,6 +25,8 @@ export function renderPlanSummary(progress: PlayerProgress): HTMLElement {
         ? el(
             "p",
             { className: "lead" },
+            tableTag(plan),
+            " ",
             el("strong", { textContent: `${plan.rune} Rune` }),
             ` at draw ${plan.draw} (chest seed `,
             el("code", { textContent: String(plan.seed) }),
@@ -36,7 +38,7 @@ export function renderPlanSummary(progress: PlayerProgress): HTMLElement {
             "p",
             { className: "lead" },
             "No plan picked yet. ",
-            el("a", { href: "#/runes", textContent: "Pick one in step 3" }),
+            el("a", { href: "#/run", textContent: "Pick one on the Run page" }),
             ", run it, then come back with your chest's drops.",
           ),
     );
@@ -144,7 +146,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
     const remeasure = ["direct" as const, ...plan.stops].filter((route) => progress.calibrationRoutes.includes(route));
     const recalibrate = el("a", {
       href: "#/calibrate",
-      textContent: `measure ${remeasure.map(routeName).join(", ").replace(/, ([^,]*)$/, " and $1")} again in step 2`,
+      textContent: `measure ${remeasure.map(routeName).join(", ").replace(/, ([^,]*)$/, " and $1")} again on the Calibrate page`,
     });
 
     let advice: Node[];
@@ -162,7 +164,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
           el(
             "p",
             { className: "lead" },
-            "21 to 50 draws out: your route calibration is likely off. Add more samples, ",
+            "21 to 50 draws out: if this was longer than a 1 minute wait, it could be variance/load timing. If it continues to be off, calibrate more more samples, ",
             recalibrate,
             ", so their averages settle.",
           ),
@@ -173,7 +175,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
           el(
             "p",
             { className: "lead" },
-            "Over 50 draws out: your route calibration is likely off, or a route was run differently. ",
+            "Over 50 draws out: your route calibration is likely off, or a route was run differently. If it was a real long wait our waypoint route, probably variance/loading you can't help.",
             recalibrate,
             ". If that doesn't help, check your game seed.",
           ),

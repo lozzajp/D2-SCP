@@ -35,32 +35,3 @@ export function renderCalibrateNextList(progress: PlayerProgress, onPick: (route
   render();
   return el("div", {}, el("p", { className: "hint", textContent: HINT }), list);
 }
-
-export function renderCalibrateNextMenu(progress: PlayerProgress): HTMLElement {
-  const menu = el(
-    "details",
-    { className: "settings-menu history-menu" },
-    el("summary", { title: "Routes worth calibrating next" }, "Calibrate next"),
-    el(
-      "div",
-      { className: "settings-body" },
-      el(
-        "section",
-        { className: "settings-section" },
-        el("h3", { textContent: "Calibrate next" }),
-        renderCalibrateNextList(progress, () => {
-          menu.open = false;
-          location.hash = "#/calibrate";
-        }),
-      ),
-    ),
-  );
-
-  document.addEventListener("click", (event) => {
-    if (menu.open && !menu.contains(event.target as Node)) menu.open = false;
-  });
-  menu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") menu.open = false;
-  });
-  return menu;
-}

@@ -142,16 +142,6 @@ export class Wizard {
     this.run?.search.cancel();
   }
 
-  newRun(): void {
-    const run = this.run;
-    this.run = null;
-    run?.search.cancel();
-    this.result = null;
-    this.state.board.length = 0;
-    this.save();
-    this.goTo("items");
-  }
-
   private searchEnded(search: SeedSearch, outcome: SearchOutcome, error?: string): void {
     const run = this.run;
     if (run?.search !== search) return;

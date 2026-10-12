@@ -10,11 +10,10 @@ export interface GuideOptions {
   lead?: string;
   badge?: string;
   progress?: PlayerProgress;
-  keepInAdvanced?: boolean;
 }
 
-export function guidePanel({ title, steps, lead, badge, progress, keepInAdvanced }: GuideOptions): HTMLElement {
-  const className = ["panel guide", keepInAdvanced ? "keep" : "", progress ? "with-status" : ""].filter(Boolean).join(" ");
+export function guidePanel({ title, steps, lead, badge, progress }: GuideOptions): HTMLElement {
+  const className = ["panel guide", progress ? "with-status" : ""].filter(Boolean).join(" ");
   return el(
     "section",
     { className },

@@ -35,7 +35,7 @@ export function renderCalibrationPanel(progress: PlayerProgress): CalibrationPan
     const known = progress.knownSeed;
     if (!known) {
       status.className = "lead";
-      status.replaceChildren("You'll need your game seed first: ", el("a", { href: "#/seed", textContent: "find it in step 1" }), ".");
+      status.replaceChildren("You'll need your game seed first: ", el("a", { href: "#/run", textContent: "find it from the gamble window" }), ".");
       results.replaceChildren();
       return;
     }

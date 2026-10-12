@@ -66,7 +66,7 @@ function renderNormalSeeds(storeSeed: number, useSeed: UseSeed, progress?: Playe
         ? button("Use this seed anyway", () => useSeed(gameSeed, NORMAL_D2R_GAME.type), "small")
         : button("That's my window! Use this seed!", () => useSeed(gameSeed, NORMAL_D2R_GAME.type), "small primary"),
     ),
-    ...(unsure && progress ? [renderRunePreview(progress, { gameSeed, gameType: NORMAL_D2R_GAME.type }, false)] : []),
+    ...(unsure && progress ? [renderRunePreview(progress, { gameSeed, gameType: NORMAL_D2R_GAME.type })] : []),
   ]);
   return el(
     "div",
@@ -109,7 +109,7 @@ function summarize(result: SearchResult, progress: PlayerProgress): HTMLElement[
     }
     return [
       lead(`${stopped} Its game seed is saved: check the window below matches your game.`, "lead success"),
-      el("div", { className: "next-steps" }, ...nextSteps(progress, "Calibrate your routes", "Go straight to plan")),
+      el("div", { className: "next-steps" }, ...nextSteps(progress, "See rune plans")),
     ];
   }
   if (count === 0) {
@@ -189,20 +189,16 @@ function renderCandidateBody(result: SearchResult, storeSeed: number, useSeed: U
     result.setup,
     result.board,
     useSeed,
-    () =>
-      ambiguous
-        ? nextSteps(progress, null, "Try a shot at a plan")
-        : nextSteps(progress, "First time? Calibrate your routes", "Calibrated routes? Go straight to plan"),
+    () => nextSteps(progress, ambiguous ? "Try a shot at a plan" : "See rune plans"),
     progress,
   );
 }
 
-function nextSteps(progress: PlayerProgress, calibrate: string | null, plan: string): HTMLElement[] {
+function nextSteps(progress: PlayerProgress, plan: string): HTMLElement[] {
   const seed = progress.knownSeed;
   return [
     ...(seed ? [renderRunePreview(progress, seed)] : []),
-    ...(calibrate ? [el("a", { className: "button-link", href: "#/calibrate", textContent: calibrate })] : []),
-    el("a", { className: "button-link", href: "#/runes", textContent: plan }),
+    el("a", { className: "button-link", href: "#/run", textContent: plan }),
   ];
 }
 

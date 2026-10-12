@@ -9,7 +9,7 @@ export function seedStatusLine(progress: PlayerProgress): HTMLElement {
     line.replaceChildren(
       ...(known
         ? ["Using game seed ", el("code", { textContent: formatSeed(known.gameSeed) }), ` (${GAME_TYPE_LABELS[known.gameType]}).`]
-        : ["You'll need your game seed first: ", el("a", { href: "#/seed", textContent: "find it in step 1" }), "."]),
+        : ["You'll need your game seed first: ", el("a", { href: "#/run", textContent: "find it from the gamble window" }), "."]),
     );
   };
   progress.subscribe(render);

@@ -9,9 +9,9 @@ export interface QuickOptions {
   root: HTMLElement;
 }
 
-export function renderQuickOptions(keyPrefix: string, className = "repeat-options"): QuickOptions {
-  const auto = savedCheckbox(`${keyPrefix}-auto`);
-  const quick = savedCheckbox(`${keyPrefix}-quick`);
+export function renderQuickOptions(keyPrefix: string, className = "repeat-options", defaultOn = false): QuickOptions {
+  const auto = savedCheckbox(`${keyPrefix}-auto`, defaultOn);
+  const quick = savedCheckbox(`${keyPrefix}-quick`, defaultOn);
   const root = el(
     "div",
     { className },
@@ -21,8 +21,9 @@ export function renderQuickOptions(keyPrefix: string, className = "repeat-option
   return { auto, quick, root };
 }
 
-function savedCheckbox(key: string): HTMLInputElement {
-  const box = el("input", { type: "checkbox", checked: localStorage.getItem(key) === "1" });
+function savedCheckbox(key: string, defaultOn: boolean): HTMLInputElement {
+  const saved = localStorage.getItem(key);
+  const box = el("input", { type: "checkbox", checked: saved === null ? defaultOn : saved === "1" });
   box.addEventListener("change", () => {
     try {
       localStorage.setItem(key, box.checked ? "1" : "0");

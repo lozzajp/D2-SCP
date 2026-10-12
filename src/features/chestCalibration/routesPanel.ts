@@ -1,6 +1,7 @@
 import { renderCalibrateNextList } from "../../app/calibrateNextMenu";
 import { cleanRouteSamples, type PlayerProgress } from "../../app/progress";
 import { DEFAULT_AREA, chestArea, isChestArea } from "../../chest/areas";
+import { MAX_CHEST_DRAWS } from "../../chest/chestStream";
 import { WAYPOINTS, averageDraw, isRouteId, routeAdds, routeName, type RouteId, type RouteSample } from "../../chest/waypoints";
 import { button, el, field } from "../../ui/dom";
 import { plural } from "../../ui/format";
@@ -72,7 +73,13 @@ export function renderRoutePicker(progress: PlayerProgress): HTMLElement {
 export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
   const badge = el("span", { className: "badge" });
   const body = el("div", {});
+  const manual = el("input", { type: "number", min: "1", max: String(MAX_CHEST_DRAWS), step: "1", placeholder: "e.g. 72" });
+  manual.addEventListener("change", () => {
+    const value = manual.value.trim() === "" ? null : Number(manual.value);
+    progress.updateSettings({ distanceToFirstChest: value !== null && Number.isInteger(value) && value >= 1 ? value : null });
+  });
   const render = () => {
+    if (document.activeElement !== manual) manual.value = progress.settings.distanceToFirstChest?.toString() ?? "";
     const samples = progress.routeSamples;
     const distance = progress.settings.distanceToFirstChest;
     const routes = progress.calibrationRoutes.filter((route) => samples.some((sample) => sample.route === route));
@@ -82,7 +89,7 @@ export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
     const lead = !progress.hasWaypointRoutes
       ? river === null
         ? "Rune plans need your Direct route."
-        : `Plans start at draw ${river}, your Direct distance, then your wait by the River of Flame waypoint.`
+        : `Plans start at draw ${river}, your Direct distance, then your wait by the River of Flame waypoint. Waypoint routes reuse your Lower Kurast waypoint calibrations, so there's nothing else to measure here.`
       : river === null
         ? "Rune plans need your Direct route, plus River of Flame to wait there, or other waypoints to hop through."
         : `River of Flame plans start at draw ${river}: distance ${distance} plus ${progress.riverAdds} for River of Flame, then your wait there. Other measured waypoints add their own draws for waypoint routes.`;
@@ -142,6 +149,8 @@ export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
     el("div", { className: "panel-head" }, el("h2", { textContent: "Your routes" }), badge),
     progress.offersPresetCalibration && renderPresetToggle(progress),
     body,
+    field("Direct distance", manual),
+    el("p", { className: "hint", textContent: "Already know your direct distance? Type it in. Measuring Direct above sets it for you." }),
     renderSampleTransfer(progress),
   );
 }
