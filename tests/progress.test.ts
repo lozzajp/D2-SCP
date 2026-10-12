@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanRouteSamples, PlayerProgress } from "../src/app/progress";
+import { cleanRouteSamples, PlayerProgress, WAYPOINT_TARGET } from "../src/app/progress";
 import { ROUTE_IDS } from "../src/chest/waypoints";
 
 function memoryStorage(initial?: string) {
@@ -228,21 +228,52 @@ describe("PlayerProgress", () => {
     const storage = memoryStorage();
     const progress = new PlayerProgress(storage);
     const next = (from = progress) => from.calibrateNext().map(({ route }) => route);
-    expect(next()).toEqual(["direct", "riverOfFlame", "coldPlains", "stonyField", "darkWood"]);
+    expect(next()).toEqual(["direct", "riverOfFlame"]);
     for (const route of ROUTE_IDS) progress.addRouteSample(route, 100);
-    expect(next()).toEqual(["direct", "riverOfFlame", "coldPlains", "stonyField", "darkWood"]);
+    expect(next()).toEqual(["direct", "riverOfFlame"]);
 
     let changes = 0;
     progress.subscribe(() => changes++);
     progress.flagRecalibrate(["direct", "travincal"]);
     progress.flagRecalibrate(["direct", "travincal"]);
     expect(changes).toBe(1);
-    expect(progress.calibrateNext()[1]).toEqual({ route: "travincal", runs: 1, flagged: true });
+    expect(progress.calibrateNext()[0]).toEqual({ route: "direct", runs: 1, flagged: true });
+    progress.setCalibrateTarget(WAYPOINT_TARGET);
+    expect(progress.calibrateNext()[0]).toEqual({ route: "travincal", runs: 1, flagged: true });
+    progress.setArea("lowerKurast");
     progress.flagRecalibrate(["riverOfFlame"]);
-    expect(next()).toEqual(["riverOfFlame", "direct", "coldPlains", "stonyField", "darkWood"]);
+    expect(next()).toEqual(["riverOfFlame", "direct"]);
     progress.addRouteSample("riverOfFlame", 150);
     progress.addRouteSample("direct", 70);
+    progress.setCalibrateTarget(WAYPOINT_TARGET);
     expect(next(new PlayerProgress(storage))).toEqual(["coldPlains", "stonyField", "darkWood", "blackMarsh", "outerCloister"]);
+  });
+
+  it("calibrates waypoint hopping as its own target on Lower Kurast", () => {
+    const storage = memoryStorage();
+    const progress = new PlayerProgress(storage);
+    expect(progress.calibrateTarget).toBe("lowerKurast");
+    expect(progress.calibratingRoutes).toEqual(["direct", "riverOfFlame"]);
+    progress.setArea("riverOfFlame");
+    expect(progress.calibratingRoutes).toEqual(["direct"]);
+    progress.setCalibrateTarget(WAYPOINT_TARGET);
+    expect(progress.area.id).toBe("lowerKurast");
+    expect(progress.calibratingRoutes).not.toContain("direct");
+    expect(progress.calibratingRoutes).not.toContain("riverOfFlame");
+    expect(progress.calibratingRoutes).toContain("travincal");
+    progress.setCalibrationRoute("travincal");
+    progress.addRouteSample("travincal", 120);
+    expect(progress.waypointHopCount).toBe(1);
+    expect(progress.waypointDirectMissing).toBe(true);
+    progress.addRouteSample("direct", 70);
+    expect(progress.waypointDirectMissing).toBe(false);
+    expect(progress.waypointHopCount).toBe(1);
+    const reloaded = new PlayerProgress(storage);
+    expect(reloaded.calibrateTarget).toBe(WAYPOINT_TARGET);
+    expect(reloaded.calibrationRoute).toBe("travincal");
+    reloaded.setArea("lowerKurast");
+    expect(reloaded.calibrateTarget).toBe("lowerKurast");
+    expect(reloaded.calibrationRoute).toBe("direct");
   });
 
   it("imports route samples by merging, one per game, or by replacing", () => {
@@ -308,7 +339,9 @@ describe("PlayerProgress", () => {
   it("remembers the route being calibrated, Direct by default", () => {
     const storage = memoryStorage();
     expect(new PlayerProgress(storage).calibrationRoute).toBe("direct");
-    new PlayerProgress(storage).setCalibrationRoute("travincal");
+    const progress = new PlayerProgress(storage);
+    progress.setCalibrateTarget(WAYPOINT_TARGET);
+    progress.setCalibrationRoute("travincal");
     expect(new PlayerProgress(storage).calibrationRoute).toBe("travincal");
     expect(new PlayerProgress(memoryStorage(JSON.stringify({ calibrationRoute: "cow level" }))).calibrationRoute).toBe("direct");
   });

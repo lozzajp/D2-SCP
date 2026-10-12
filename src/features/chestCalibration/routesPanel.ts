@@ -1,5 +1,5 @@
 import { renderCalibrateNextList } from "../../app/calibrateNextMenu";
-import { cleanRouteSamples, type PlayerProgress } from "../../app/progress";
+import { WAYPOINT_TARGET, cleanRouteSamples, type PlayerProgress } from "../../app/progress";
 import { DEFAULT_AREA, chestArea, isChestArea } from "../../chest/areas";
 import { MAX_CHEST_DRAWS } from "../../chest/chestStream";
 import { WAYPOINTS, averageDraw, isRouteId, routeAdds, routeName, type RouteId, type RouteSample } from "../../chest/waypoints";
@@ -11,7 +11,8 @@ const ACTS = [1, 2, 3, 4, 5] as const;
 
 export function renderRoutePicker(progress: PlayerProgress): HTMLElement {
   const area = progress.area.name;
-  if (!progress.hasWaypointRoutes) {
+  const routes = progress.calibratingRoutes;
+  if (routes.length === 1) {
     return el(
       "section",
       { className: "panel" },
@@ -22,16 +23,13 @@ export function renderRoutePicker(progress: PlayerProgress): HTMLElement {
   const select = el(
     "select",
     {},
-    el("option", { value: "direct", textContent: "Direct (no waypoint)" }),
-    ...ACTS.map((act) =>
-      el(
-        "optgroup",
-        { label: `Act ${act}` },
-        ...WAYPOINTS.filter((waypoint) => waypoint.act === act).map((waypoint) =>
-          el("option", { value: waypoint.id, textContent: waypoint.name }),
-        ),
-      ),
-    ),
+    ...(routes.includes("direct") ? [el("option", { value: "direct", textContent: "Direct (no waypoint)" })] : []),
+    ...ACTS.flatMap((act) => {
+      const waypoints = WAYPOINTS.filter((waypoint) => waypoint.act === act && routes.includes(waypoint.id));
+      return waypoints.length === 0
+        ? []
+        : [el("optgroup", { label: `Act ${act}` }, ...waypoints.map((waypoint) => el("option", { value: waypoint.id, textContent: waypoint.name })))];
+    }),
   );
   select.addEventListener("change", () => {
     if (isRouteId(select.value)) progress.setCalibrationRoute(select.value);
@@ -82,17 +80,24 @@ export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
     if (document.activeElement !== manual) manual.value = progress.settings.distanceToFirstChest?.toString() ?? "";
     const samples = progress.routeSamples;
     const distance = progress.settings.distanceToFirstChest;
-    const routes = progress.calibrationRoutes.filter((route) => samples.some((sample) => sample.route === route));
+    const routes = progress.calibratingRoutes.filter((route) => samples.some((sample) => sample.route === route));
     const river = progress.riverStart;
-    badge.textContent = river === null ? "Not ready to plan" : "Ready to plan";
-    badge.classList.toggle("done", river !== null);
-    const lead = !progress.hasWaypointRoutes
-      ? river === null
-        ? "Rune plans need your Direct route."
-        : `Plans start at draw ${river}, your Direct distance, then your wait by the River of Flame waypoint. Waypoint routes reuse your Lower Kurast waypoint calibrations, so there's nothing else to measure here.`
-      : river === null
-        ? "Rune plans need your Direct route, plus River of Flame to wait there, or other waypoints to hop through."
-        : `River of Flame plans start at draw ${river}: distance ${distance} plus ${progress.riverAdds} for River of Flame, then your wait there. Other measured waypoints add their own draws for waypoint routes.`;
+    const hopping = progress.calibrateTarget === WAYPOINT_TARGET;
+    const hops = progress.waypointHopCount;
+    const ready = hopping ? hops > 0 && distance !== null : river !== null;
+    badge.textContent = hopping ? (ready ? "Ready to hop" : "Not ready to hop") : ready ? "Ready to plan" : "Not ready to plan";
+    badge.classList.toggle("done", ready);
+    const lead = hopping
+      ? distance === null
+        ? `${plural(hops, "waypoint")} measured. Their adds show once Lower Kurast Direct is calibrated.`
+        : `${plural(hops, "waypoint")} measured. Each adds its own draws on top of your Lower Kurast Direct ${distance}, for Lower Kurast and River of Flame waypoint routes.`
+      : progress.calibratingRoutes.length === 1
+        ? river === null
+          ? "Rune plans need your Direct route."
+          : `Plans start at draw ${river}, your Direct distance, then your wait by the River of Flame waypoint. Waypoint routes reuse your Waypoint Hopping calibrations, so there's nothing else to measure here.`
+        : river === null
+          ? "Rune plans need your Direct route, plus River of Flame to wait there."
+          : `River of Flame plans start at draw ${river}: distance ${distance} plus ${progress.riverAdds} for River of Flame, then your wait there. Other waypoints are under Waypoint Hopping.`;
     body.replaceChildren(
       el("p", { className: "lead", textContent: lead }),
       routes.length === 0
@@ -149,8 +154,12 @@ export function renderRoutesPanel(progress: PlayerProgress): HTMLElement {
     el("div", { className: "panel-head" }, el("h2", { textContent: "Your routes" }), badge),
     progress.offersPresetCalibration && renderPresetToggle(progress),
     body,
-    field("Direct distance", manual),
-    el("p", { className: "hint", textContent: "Already know your direct distance? Type it in. Measuring Direct above sets it for you." }),
+    ...(progress.calibrateTarget === WAYPOINT_TARGET
+      ? []
+      : [
+          field("Direct distance", manual),
+          el("p", { className: "hint", textContent: "Already know your direct distance? Type it in. Measuring Direct above sets it for you." }),
+        ]),
     renderSampleTransfer(progress),
   );
 }

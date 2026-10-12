@@ -54,7 +54,10 @@ const STORAGE_KEY = "d2lkscp-progress";
 const GAME_TYPES = Object.keys(STORE_SEED_DRAWS) as GameType[];
 const CHEST_SLOTS: readonly ChestSlot[] = ["first", "refine"];
 const AREA_ROUTES: Record<ChestAreaId, readonly RouteId[]> = { lowerKurast: ROUTE_IDS, riverOfFlame: ["direct"] };
+const AREA_BASE_ROUTES: readonly RouteId[] = ["direct", RIVER_OF_FLAME];
 const WAYPOINT_AREA: ChestAreaId = "lowerKurast";
+export const WAYPOINT_TARGET = "waypoints";
+export type CalibrateTarget = ChestAreaId | typeof WAYPOINT_TARGET;
 const PRESET_AREA: ChestAreaId = "lowerKurast";
 const PRESET_SAMPLES: readonly RouteSample[] = cleanRouteSamples(
   Object.entries(presetCalibration.draws).map(([route, draw]) => ({ route, draw, gameSeed: null, preset: true })),
@@ -124,6 +127,7 @@ interface Saved {
   planSort: PlanSort;
   routeMode: RouteMode;
   minRune: Rune;
+  calibratingWaypoints: boolean;
 }
 
 const DEFAULT_MIN_RUNE: Rune = "Pul";
@@ -159,20 +163,32 @@ export class PlayerProgress {
   }
 
   setArea(area: ChestAreaId): void {
-    if (!isChestArea(area) || area === this.saved.area) return;
-    this.switchTable(area, this.saved.players);
+    if (!isChestArea(area) || (area === this.saved.area && !this.saved.calibratingWaypoints)) return;
+    this.switchTable(area, this.saved.players, false);
+    this.changed();
+  }
+
+  get calibrateTarget(): CalibrateTarget {
+    return this.saved.calibratingWaypoints ? WAYPOINT_TARGET : this.saved.area;
+  }
+
+  setCalibrateTarget(target: CalibrateTarget): void {
+    if (target === this.calibrateTarget) return;
+    if (target === WAYPOINT_TARGET) this.switchTable(WAYPOINT_AREA, this.saved.players, true);
+    else if (isChestArea(target)) this.switchTable(target, this.saved.players, false);
+    else return;
     this.changed();
   }
 
   setPlayers(players: PlayerCount): void {
     if (players === this.saved.players || !isPlayerCount(players)) return;
-    this.switchTable(this.saved.area, players);
+    this.switchTable(this.saved.area, players, this.saved.calibratingWaypoints);
     this.changed();
   }
 
   useTable({ area, players }: PatternTable): void {
     if (!isChestArea(area) || !isPlayerCount(players) || tableKey({ area, players }) === tableKey(this.chestTable)) return;
-    this.switchTable(area, players);
+    this.switchTable(area, players, this.saved.calibratingWaypoints && area === WAYPOINT_AREA);
     this.changed();
   }
 
@@ -190,8 +206,8 @@ export class PlayerProgress {
     }
   }
 
-  private switchTable(area: ChestAreaId, players: PlayerCount): void {
-    const before = tableKey(this.chestTable);
+  private switchTable(area: ChestAreaId, players: PlayerCount, waypoints: boolean): void {
+    const before = `${tableKey(this.chestTable)}:${this.calibrateTarget}`;
     if (players !== this.saved.players) {
       this.saved.players = players;
       for (const saved of Object.values(this.saved.areas)) {
@@ -199,8 +215,9 @@ export class PlayerProgress {
       }
     }
     this.saved.area = area;
+    this.saved.calibratingWaypoints = waypoints && area === WAYPOINT_AREA;
     this.save();
-    if (tableKey(this.chestTable) === before) return;
+    if (`${tableKey(this.chestTable)}:${this.calibrateTarget}` === before) return;
     for (const listener of this.scoped) this.listeners.delete(listener);
     this.scoped.clear();
     for (const listener of this.tableListeners) listener();
@@ -208,6 +225,12 @@ export class PlayerProgress {
 
   get calibrationRoutes(): readonly RouteId[] {
     return AREA_ROUTES[this.saved.area];
+  }
+
+  get calibratingRoutes(): readonly RouteId[] {
+    const routes = this.calibrationRoutes;
+    if (this.saved.area !== WAYPOINT_AREA) return routes;
+    return routes.filter((route) => this.saved.calibratingWaypoints === !AREA_BASE_ROUTES.includes(route));
   }
 
   get hasWaypointRoutes(): boolean {
@@ -228,6 +251,15 @@ export class PlayerProgress {
 
   riverAddsIn(area: ChestAreaId): number | null {
     return riverAddsOf(this.saved.areas[area], area);
+  }
+
+  get waypointHopCount(): number {
+    const routes = new Set(this.saved.areas[WAYPOINT_AREA].routeSamples.map((sample) => sample.route));
+    return [...routes].filter((route) => !AREA_BASE_ROUTES.includes(route)).length;
+  }
+
+  get waypointDirectMissing(): boolean {
+    return this.saved.areas[WAYPOINT_AREA].distanceToFirstChest === null;
   }
 
   waypointAreaFor(area: ChestAreaId): ChestAreaId {
@@ -325,11 +357,12 @@ export class PlayerProgress {
   }
 
   get calibrationRoute(): RouteId {
-    return this.here.calibrationRoute;
+    const routes = this.calibratingRoutes;
+    return routes.includes(this.here.calibrationRoute) ? this.here.calibrationRoute : routes[0];
   }
 
   setCalibrationRoute(route: RouteId): void {
-    if (!this.calibrationRoutes.includes(route)) return;
+    if (!this.calibratingRoutes.includes(route)) return;
     this.here.calibrationRoute = route;
     this.changed();
   }
@@ -346,10 +379,10 @@ export class PlayerProgress {
     const runs = new Map<RouteId, number>();
     for (const { route, preset } of this.here.routeSamples) if (!preset) runs.set(route, (runs.get(route) ?? 0) + 1);
     const runsOf = (route: RouteId) => runs.get(route) ?? 0;
-    const order = CALIBRATE_ORDER.filter((route) => this.calibrationRoutes.includes(route));
+    const order = CALIBRATE_ORDER.filter((route) => this.calibratingRoutes.includes(route));
     const fresh = order.filter((route) => runsOf(route) === 0);
     const fewest = order.filter((route) => runsOf(route) > 0).sort((a, b) => runsOf(a) - runsOf(b));
-    const flagged = this.here.recalibrate;
+    const flagged = this.here.recalibrate.filter((route) => this.calibratingRoutes.includes(route));
     return [...new Set([...fresh, ...flagged, ...fewest])]
       .slice(0, limit)
       .map((route) => ({ route, runs: runsOf(route), flagged: flagged.includes(route) }));
@@ -458,7 +491,7 @@ export class PlayerProgress {
   setPlan(plan: PickedPlan | null): void {
     const clean = cleanPlan(plan, this.chestTable);
     this.saved.plan = clean;
-    if (clean) this.switchTable(clean.area, clean.players);
+    if (clean) this.switchTable(clean.area, clean.players, this.saved.calibratingWaypoints && clean.area === WAYPOINT_AREA);
     this.changed();
   }
 
@@ -558,6 +591,7 @@ function load(storage: Pick<Storage, "getItem"> | undefined): Saved {
     planSort: PLAN_SORTS.includes(data.planSort as PlanSort) ? data.planSort! : "soonest",
     routeMode: AVAILABLE_ROUTE_MODES.includes(data.routeMode as RouteMode) ? data.routeMode! : "wait",
     minRune: CHEST_RUNES.includes(data.minRune as Rune) ? data.minRune! : DEFAULT_MIN_RUNE,
+    calibratingWaypoints: data.calibratingWaypoints === true && area === WAYPOINT_AREA,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { KnownSeed, PickedPlan, PlanRoute, PlanSort, PlayerProgress, RouteGap } from "../../app/progress";
+import { WAYPOINT_TARGET, type KnownSeed, type PickedPlan, type PlanRoute, type PlanSort, type PlayerProgress, type RouteGap } from "../../app/progress";
 import { planTables, type TableInput, type TableTarget } from "../../chest/allPlans";
 import { CHEST_AREAS, PLAYER_COUNTS, chestArea, tableKey, type ChestAreaId, type PatternTable } from "../../chest/areas";
 import { loadChestPatterns } from "../../chest/loadPatterns";
@@ -453,8 +453,8 @@ function gapNote(progress: PlayerProgress, area: ChestAreaId, gap: RouteGap): HT
       );
     case "waypoints": {
       const from = progress.waypointAreaFor(area);
-      const link = el("a", { href: "#/calibrate", textContent: "calibrate them", onclick: () => progress.setArea(from) });
-      const shared = from === area ? "" : ` (shared from ${chestArea(from).name})`;
+      const link = el("a", { href: "#/calibrate", textContent: "calibrate them", onclick: () => progress.setCalibrateTarget(WAYPOINT_TARGET) });
+      const shared = from === area ? "" : ` (shared from ${chestArea(from).name} Waypoint Hopping)`;
       return el("p", { className: "hint" }, `${name} waypoint routes need some measured waypoints${shared}: `, link, ".");
     }
   }
