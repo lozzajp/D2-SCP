@@ -85,7 +85,12 @@ class RunPage {
       el(
         "section",
         { className: "panel" },
-        el("header", { className: "panel-head" }, el("h2", { textContent: "Gamble window" })),
+        el(
+          "header",
+          { className: "panel-head" },
+          el("h2", { textContent: "Gamble window" }),
+          button("New Run", () => this.newRun(), "primary"),
+        ),
         el("p", {
           className: "lead",
           textContent:
