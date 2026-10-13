@@ -179,7 +179,7 @@ describe("PlayerProgress", () => {
     const progress = new PlayerProgress(storage);
     expect(progress.platform).toBeNull();
     progress.setPlatform("ps");
-    expect(progress.settings.fireRate).toBe(1.7);
+    expect(progress.settings.fireRate).toBe(1.5625);
     progress.updateSettings({ fireRate: 2.2 });
     progress.setPlatform("xbox");
     expect(progress.settings.fireRate).toBe(2.2);

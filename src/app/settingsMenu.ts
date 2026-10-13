@@ -18,7 +18,7 @@ export function openSettingsMenu(event: Event): void {
 export function renderSettingsMenu(progress: PlayerProgress): HTMLElement {
   const summary = el("summary", { title: "Game settings" });
   const seedRow = el("div", { className: "settings-seed" });
-  const fireRate = numberInput("fireRate", "0.1", "1.0 - 3.0");
+  const fireRate = numberInput("fireRate", "any", "1.0 - 3.0");
   const player = playerSettingInputs(progress);
 
   function numberInput(key: keyof GameSettings, step: string, placeholder: string): HTMLInputElement {

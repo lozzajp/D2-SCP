@@ -23,8 +23,8 @@ export function defaultRunePick(rune: Rune, minRune: Rune = DEFAULT_MIN_RUNE): {
   return { on: RANK.get(rune)! >= RANK.get(minRune)!, wait: RANK.get(rune)! >= RANK.get("Ber")! ? 1500 : 600 };
 }
 
-export const PLATFORM_FIRE_RATES: Partial<Record<PlatformId, number>> = { pc: 3, ps: 1.7 };
-export const FIRE_RATE_NOTE = "known range 1.0 - 3.0: PC about 3.0, PS5 about 1.7";
+export const PLATFORM_FIRE_RATES: Partial<Record<PlatformId, number>> = { pc: 3, ps: 1.5625 };
+export const FIRE_RATE_NOTE = "known range 1.0 - 3.0: PC about 3.0, PS5 about 1.5625";
 const LOOK_BEYOND = 6000;
 const FIRST_CHEST_DRAW = 3;
 

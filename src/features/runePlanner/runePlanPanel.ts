@@ -452,7 +452,7 @@ function gapNote(progress: PlayerProgress, area: ChestAreaId, gap: RouteGap): HT
 }
 
 function fireRateField(progress: PlayerProgress): (Node | string)[] {
-  const input = el("input", { type: "number", step: "0.1", min: "0", placeholder: "1.0 - 3.0" });
+  const input = el("input", { type: "number", step: "any", min: "0", placeholder: "1.0 - 3.0" });
   input.addEventListener("change", () => {
     const value = Number(input.value);
     progress.updateSettings({ fireRate: input.value.trim() !== "" && Number.isFinite(value) && value > 0 ? value : null });
