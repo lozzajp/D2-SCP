@@ -18,6 +18,13 @@ function steps(progress: PlayerProgress): readonly GuideStep[] {
   ];
 }
 
+export function openRefineDrops(): void {
+  focusDrops = true;
+  location.hash = "#/refine";
+}
+
+let focusDrops = false;
+
 export const refine: Feature = {
   id: "refine",
   title: "Refine",
@@ -26,19 +33,23 @@ export const refine: Feature = {
   tableScoped: true,
   createPage(progress) {
     const refinePanel = renderRefinePanel(progress);
+    const drops = renderDropsPanel(progress, "refine");
     return {
       root: el(
         "div",
         { className: "page" },
         guidePanel({ title: "Refine your timing", progress, steps: steps(progress) }),
         renderPlanSummary(progress),
-        renderDropsPanel(progress, "refine"),
+        drops,
         renderChestSeedPanel(progress, "refine", refinePanel.setSearch),
         refinePanel.root,
       ),
       onShow() {
         const plan = progress.plan;
         if (plan) progress.useTable(plan);
+        if (!focusDrops || !drops.isConnected) return;
+        focusDrops = false;
+        requestAnimationFrame(() => drops.querySelector<HTMLInputElement>(".picker-filter")?.focus());
       },
     };
   },

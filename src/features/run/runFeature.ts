@@ -17,6 +17,7 @@ import { AUTO_DELAY_MS, QUICK_ITEMS, renderQuickOptions } from "../seedFinder/qu
 import { loadState, searchParamsOf, type Setup } from "../seedFinder/state";
 import { renderMatchBody, type UseSeed } from "../seedFinder/matchBody";
 import { RateMeter } from "../seedFinder/rateMeter";
+import { openRefineDrops } from "../refine/refineFeature";
 
 const BOARD_KEY = "d2lkscp-repeat-board";
 
@@ -105,7 +106,7 @@ class RunPage {
         "div",
         { className: "new-run" },
         button("New Run", () => this.newRun(), "primary"),
-        button("Wrong chest? Check out Refine", () => (location.hash = "#/refine"), "refine-cta"),
+        button("Wrong chest? Check out Refine", openRefineDrops, "refine-cta"),
       ),
       this.afterPlan,
     );
@@ -201,7 +202,7 @@ class RunPage {
     this.hidePlans();
     this.setup = this.currentSetup();
     this.renderInput()?.focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    this.scrollTo(this.inputBox);
   }
 
   private manualSeed(): HTMLElement {
