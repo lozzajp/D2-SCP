@@ -19,6 +19,7 @@ export function renderBoardInput(
   setup: Setup,
   onChange: (blocker: string | null) => void,
   autoRunAt: () => number | null = () => null,
+  mnemonics = false,
 ): BoardInput {
   const offered = offeredItemTypes(setup);
   const offeredSet = new Set(offered);
@@ -49,6 +50,7 @@ export function renderBoardInput(
       highlighted = item;
       showPreview();
     },
+    mnemonics,
   );
   let highlighted: number | null = null;
   const preview = el("div", { className: "tile-preview" });

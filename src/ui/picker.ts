@@ -6,6 +6,7 @@ export interface PickerEntry<T> {
   detail?: string;
   category?: string;
   demoted?: boolean;
+  shorthand?: string;
 }
 
 export interface Picker {
@@ -61,14 +62,20 @@ export function createPicker<T>(
       "button",
       { type: "button", className: "picker-row", onclick: () => pick(entry.value) },
       el("span", { className: "picker-swatch" }),
-      el("span", { className: "picker-name", textContent: entry.name }),
+      el(
+        "span",
+        { className: "picker-name" },
+        entry.name,
+        entry.shorthand ? el("span", { className: "picker-short", textContent: ` (${entry.shorthand})` }) : "",
+      ),
       entry.detail ? el("span", { className: "picker-size", textContent: entry.detail }) : null,
     );
     if (entry.category) row.dataset.category = entry.category;
     row.addEventListener("pointerenter", () => onHighlight?.(entry.value));
     list.append(row);
     const name = entry.name.toLowerCase();
-    return { value: entry.value, row, name, words: name.split(/[\s-]+/), demoted: entry.demoted ?? false };
+    const shorthand = entry.shorthand?.toLowerCase() ?? "";
+    return { value: entry.value, row, name, words: name.split(/[\s-]+/), demoted: entry.demoted ?? false, shorthand };
   });
 
   let visible = rows;
@@ -87,10 +94,15 @@ export function createPicker<T>(
   function applyFilter(): void {
     const text = filter.value.trim().toLowerCase().replace(/\s+/g, " ");
     select(-1);
-    for (const { row, name, words } of rows) row.hidden = !matches(text, name, words);
+    for (const { row, name, words, shorthand } of rows) {
+      row.hidden = !matches(text, name, words) && !(text !== "" && shorthand.startsWith(text));
+    }
     visible = rows.filter(({ row }) => !row.hidden);
     list.scrollTop = 0;
-    if (text && visible.length > 0) select(preferredIndex(text, visible));
+    if (text && visible.length > 0) {
+      const exact = visible.findIndex(({ shorthand }) => shorthand === text);
+      select(exact >= 0 ? exact : preferredIndex(text, visible));
+    }
   }
 
   function pick(value: T): void {

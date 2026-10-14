@@ -78,6 +78,7 @@ class RunPage {
     this.afterPlan = el("div", { className: "page", hidden: true }, renderRunSteps(progress), renderAfterRun());
     this.stopButton.hidden = true;
     this.options.auto.addEventListener("change", () => this.input?.refresh());
+    this.options.mnemonics.addEventListener("change", () => this.renderInput()?.focus({ preventScroll: true }));
     this.root = el(
       "div",
       { className: "page" },
@@ -181,6 +182,7 @@ class RunPage {
         this.autoSearch(blocker);
       },
       () => (this.options.auto.checked ? QUICK_ITEMS : null),
+      this.options.mnemonics.checked,
     );
     this.input = input;
     this.inputBox.replaceChildren(input.root);
@@ -538,7 +540,7 @@ function runSteps(plan: PickedPlan): (string | Node)[][] {
         ];
   return [
     ["Set ", el("strong", { textContent: `/players ${plan.players}` }), " if you haven't already."],
-    ["Use the wait timer above (it beeps at 10 seconds left and the last 5 seconds), or have a stopwatch ready."],
+    ["Use the wait timer above (it beeps at 30 and 10 seconds left and the last 5 seconds), or have a stopwatch ready."],
     travel,
     wait,
     [

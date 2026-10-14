@@ -5,7 +5,7 @@ import { button, el } from "../../ui/dom";
 import { waitTenths } from "../../ui/format";
 
 const COUNTDOWN_BEEPS = 5;
-const WARNING_SECONDS = 10;
+const WARNING_SECONDS = [30, 10];
 const LEAD_IN_SECONDS = 3;
 const START_SHOWN_SECONDS = 1;
 const TICK_MS = 100;
@@ -149,7 +149,7 @@ export function renderWaitTimer(progress: PlayerProgress, options: WaitTimerOpti
       ...before,
       seconds === 0
         ? `No wait: ${leave} as soon as you reach River of Flame.`
-        : `Press Start, and on 3, 2, 1, START take the waypoint to River of Flame. It beeps at ${WARNING_SECONDS} seconds left and the last ${COUNTDOWN_BEEPS} seconds, ` +
+        : `Press Start, and on 3, 2, 1, START take the waypoint to River of Flame. It beeps at ${WARNING_SECONDS.join(" and ")} seconds left and the last ${COUNTDOWN_BEEPS} seconds, ` +
             `then a long beep means ${leave}. Keep this tab's sound on.`,
     );
   }
@@ -252,7 +252,7 @@ function scheduleBeeps(audio: AudioContext, wait: number): void {
   for (let count = 0; count < LEAD_IN_SECONDS; count++) beep(audio, now + count, 660, 0.15);
   const start = now + LEAD_IN_SECONDS;
   beep(audio, start, 990, 0.4);
-  if (wait - WARNING_SECONDS > 0) beep(audio, start + wait - WARNING_SECONDS, 880, 0.3);
+  for (const left of WARNING_SECONDS) if (wait - left > 0) beep(audio, start + wait - left, 880, 0.3);
   for (let left = COUNTDOWN_BEEPS; left >= 1; left--) {
     if (wait - left > 0) beep(audio, start + wait - left, 880, 0.12);
   }

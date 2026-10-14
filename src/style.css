@@ -695,6 +695,10 @@ button.small {
   flex: 1;
 }
 
+.picker-short {
+  color: var(--muted);
+}
+
 .picker-size {
   font-size: 0.85em;
   font-variant-numeric: tabular-nums;
