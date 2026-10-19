@@ -243,7 +243,7 @@ class RunPage {
     return el(
       "div",
       { className: "manual-seed" },
-      el("label", { textContent: "Manul Seed: (testing, or using last seed if you closed window)" }),
+      el("label", { textContent: "Manual Seed: (testing, or using last seed if you closed window)" }),
       input,
       button("Use seed", use, "primary"),
       error,
