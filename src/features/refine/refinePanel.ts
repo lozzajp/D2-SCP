@@ -177,7 +177,6 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
     if (offset === 0) {
       return el("div", { className: "refine" }, el("p", { className: "lead", textContent: "Spot on: your chest landed on the planned draw." }));
     }
-    const seconds = Math.abs(offset) / plan.fireRate;
     const kind = refineAdvice(offset);
     if (kind !== "variance" && Math.abs(offset) <= RECALIBRATE_WITHIN) {
       queueMicrotask(() => progress.flagRecalibrate(["direct", ...plan.stops]));
@@ -237,7 +236,7 @@ export function renderRefinePanel(progress: PlayerProgress): RefinePanel {
       { className: "refine" },
       el("p", {
         className: "lead",
-        textContent: `Your chest landed ${offsetText(offset)}, about ${seconds.toFixed(1)}s ${offset > 0 ? "late" : "early"}.`,
+        textContent: `Your chest landed ${offsetText(offset)}.`,
       }),
       ...advice,
     );
