@@ -1,3 +1,5 @@
+import { gamblePool } from "../gamble/pool";
+import { GpuWindowMatcher } from "./gpu/gpuMatcher";
 import type { SearchParams, WorkerRequest, WorkerResponse } from "./protocol";
 
 export const STORE_SEED_COUNT = 2 ** 32;
@@ -28,6 +30,8 @@ export interface SearchOptions {
   chunkSize?: number;
   maxMatches?: number;
   createWorker?: SearchWorkerFactory;
+  /** Search on the GPU, falling back to workers if WebGPU can't start. On by default when WebGPU exists and no worker factory is given. */
+  gpu?: boolean;
 }
 
 export class SeedSearch {
@@ -43,6 +47,7 @@ export class SeedSearch {
   private readonly maxMatches: number;
   private readonly createWorker: SearchWorkerFactory;
   private readonly workers: SearchWorker[] = [];
+  private readonly useGpu: boolean;
   private nextChunkStart = 0;
   private busyWorkers = 0;
 
@@ -54,9 +59,47 @@ export class SeedSearch {
     this.chunkSize = options.chunkSize ?? CHUNK_SIZE;
     this.maxMatches = options.maxMatches ?? MAX_MATCHES;
     this.createWorker = options.createWorker ?? createWebWorker;
+    this.useGpu = options.gpu ?? (!options.createWorker && typeof navigator !== "undefined" && "gpu" in navigator);
   }
 
+  /** "gpu" once a WebGPU search is running; "workers" for CPU threads, including after a GPU fallback. */
+  backend: "gpu" | "workers" | null = null;
+
   start(): void {
+    if (this.useGpu) void this.startGpu();
+    else this.startWorkers();
+  }
+
+  private async startGpu(): Promise<void> {
+    let matcher: GpuWindowMatcher;
+    try {
+      const { charLevel, poolOrder, rowPool, observed } = this.params;
+      matcher = await GpuWindowMatcher.create(charLevel, gamblePool(poolOrder, rowPool), observed, this.maxMatches);
+    } catch {
+      if (!this.outcome) this.startWorkers();
+      return;
+    }
+    if (this.outcome) return matcher.destroy();
+    this.backend = "gpu";
+    try {
+      await matcher.scan(0, this.seedCount, (seeds, fresh) => {
+        if (this.outcome) return true;
+        this.seedsTested += seeds;
+        this.matches.push(...fresh.slice(0, this.maxMatches - this.matches.length));
+        if (this.matches.length >= this.maxMatches) this.finish("capped");
+        else this.listener.onProgress();
+        return this.outcome !== null;
+      });
+      this.finish("complete");
+    } catch (error) {
+      this.finish("failed", error instanceof Error ? error.message : String(error));
+    } finally {
+      matcher.destroy();
+    }
+  }
+
+  private startWorkers(): void {
+    this.backend = "workers";
     for (let i = 0; i < this.threads; i++) {
       const worker = this.createWorker(
         (response) => this.handle(worker, response),

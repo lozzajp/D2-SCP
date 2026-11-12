@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080808" />
+    <title>GPU Seed Bench</title>
+    <style>
+      /* Single dark look, matching the planner: one column of controls, a log below. */
+      :root { color-scheme: dark; --bg: #0b0b0b; --fg: #e8e2d6; --muted: #9a9284; --ok: #6fbf73; --bad: #e0564f; --line: #2a2723; --field: #1a1815; --accent: #b3262c; --on-accent: #fff; --mono: ui-monospace, "SF Mono", Menlo, monospace; }
+      body { margin: 0; padding-inline: 16px; padding-block: 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      label { display: block; margin: 8px 0; }
+      select, input { font: inherit; background: var(--field); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+      button { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 8px; border: 0; background: var(--accent); color: var(--on-accent); width: 100%; margin-top: 8px; }
+      button:disabled { opacity: 0.5; }
+      #log { margin-top: 16px; white-space: pre-wrap; font: 13px/1.5 var(--mono); font-variant-numeric: tabular-nums; border-top: 1px solid var(--line); padding-top: 12px; }
+      .ok { color: var(--ok); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+      .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+      .bar > div { height: 100%; width: 0; background: var(--accent); }
+      button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+    </style>
+  </head>
+  <body>
+    <h1>GPU seed search bench</h1>
+    <label>Platform
+      <select id="order">
+        <option value="musl" selected>Switch (musl)</option>
+        <option value="msvc">PC / Xbox (msvc)</option>
+        <option value="ps5">PlayStation (ps5)</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="row" checked /> Reign of the Warlock</label>
+    <label>Character level <input id="level" type="number" min="1" max="99" value="90" style="width: 5em" /></label>
+    <label>Items seen <input id="seen" type="number" min="2" max="14" value="7" style="width: 5em" /></label>
+    <button id="run">Run bench</button>
+    <div class="bar"><div id="progress"></div></div>
+    <div id="log"></div>
+    <script type="module" src="/src/bench/gpuBench.ts"></script>
+  </body>
+</html>
