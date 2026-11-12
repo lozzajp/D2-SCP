@@ -302,7 +302,7 @@ class RunPage {
       const perSecond = run.rate.update(search.seedsTested);
       const secondsLeft = (search.seedCount - search.seedsTested) / perSecond;
       this.stats.textContent =
-        `${(fraction * 100).toFixed(1)}% · ${formatCount(perSecond)} seeds/s · ${formatDuration(secondsLeft)} left` +
+        `${(fraction * 100).toFixed(1)}% · ${formatCount(perSecond)} seeds/s${search.backend === "gpu" ? " (GPU)" : ""} · ${formatDuration(secondsLeft)} left` +
         (search.matches.length > 0 ? " · still checking for other matching windows" : "");
     }
     this.showNewMatches(run);
